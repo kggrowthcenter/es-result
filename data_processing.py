@@ -17,84 +17,15 @@ def finalize_data():
                               'status','directorate','division',
                               'department','section', 'position','region','marital','children',	'education','participation_23', 'layer','subdivision']]
 
-    # List penugasan
-    update_list = {
-        5382: {'unit': 'CORCOMM', 'subunit': 'CORCOMM'},
-        28009: {'unit': 'GOMED', 'subunit': 'GRID'},
-        1536: {'unit': 'GOMED', 'subunit': 'KONTAN'},
-        5135: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        1416: {'unit': 'YMN', 'subunit': 'UNIVERSITAS'},
-        4469: {'unit': 'YMN', 'subunit': 'UNIVERSITAS'},
-        1375: {'unit': 'GOMED', 'subunit': 'HARKOM'},
-        1376: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        2002: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        2751: {'unit': 'GOMED', 'subunit': 'GRID'},
-        2975: {'unit': 'GOMAN', 'subunit': 'GOMAN'},
-        3316: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        3392: {'unit': 'GOMED', 'subunit': 'GRID'},
-        3412: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        4520: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        4521: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        4982: {'unit': 'GOMAN', 'subunit': 'GOMAN'},
-        5035: {'unit': 'GOMED', 'subunit': 'GRID'},
-        5584: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        5951: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        6097: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        6149: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        10239: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        12691: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        14956: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        16446: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        18196: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        19474: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        22264: {'unit': 'GOMED', 'subunit': 'KOMPAS TV'},
-        23163: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        24377: {'unit': 'GOMED', 'subunit': 'KOMPAS TV'},
-        28962: {'unit': 'GOMED', 'subunit': 'KOMPAS TV'},
-        35202: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        35318: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        35439: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        35689: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        35859: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        35896: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        39763: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        42342: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        62757: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        26832: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        100013: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        26822: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        100027: {'unit': 'YMN', 'subunit': 'DIGITAL'},
-        100001: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        81563: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        23945: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        27259: {'unit': 'GOMED', 'subunit': 'GOMED'},
-        59284: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        61032: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        24870: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        76975: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        86635: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        27011: {'unit': 'GOMED', 'subunit': 'TRIBUN'},
-        74900: {'unit': 'GOMED', 'subunit': 'GRID'},
-        17261: {'unit': 'GOMED', 'subunit': 'GRID'},
-        1551: {'unit': 'GOMED', 'subunit': 'GRID'},
-        4042: {'unit': 'GOMED', 'subunit': 'GRID'},
-        37520: {'unit': 'GOMED', 'subunit': 'GRID'},
-        5874: {'unit': 'GOMED', 'subunit': 'GOMED'}
-    }
-    
-    # Iterate over the update list and update the DataFrame
-    for nik, values in update_list.items():
-        df_survey.loc[df_survey['nik'] == nik, ['unit', 'subunit']] = [values['unit'], values['subunit']]
-
     # Replacing missing value
     df_survey['directorate'] = df_survey['directorate'].replace([0,'#N/A'],'-')
     df_survey['division'] = df_survey['division'].replace(['','#N/A'],'-')
     df_survey['department'] = df_survey['department'].replace(['','#N/A',0],'-')
     df_survey['section'] = df_survey['section'].replace(['','#N/A',0],'-')
     df_survey['layer'] = df_survey['layer'].replace(['#N/A','#VALUE!'],'-')
-    df_survey['marital'] = df_survey['marital'].replace({'#N/A':'-', 'Cerai':'Duda/Janda', 'Lajang':'Belum Menikah', 'Nikah':'Sudah Menikah'})
-    df_survey['education'] = df_survey['education'].replace({'#N/A':'-', 'D1':'Diploma', 'D2':'Diploma', 'D3':'Diploma', 'D4':'Diploma'})
-    df_survey['children'] = df_survey['children'].replace('#N/A','-')
+    #df_survey['marital'] = df_survey['marital'].replace({'#N/A':'-', 'Cerai':'Duda/Janda', 'Lajang':'Belum Menikah', 'Nikah':'Sudah Menikah'})
+    #df_survey['education'] = df_survey['education'].replace({'#N/A':'-', 'D1':'Diploma', 'D2':'Diploma', 'D3':'Diploma', 'D4':'Diploma'})
+    #df_survey['children'] = df_survey['children'].replace('#N/A','-')
     df_survey['unit'] = df_survey['unit'].replace('GOMED','KG MEDIA')
     df_survey['subunit'] = df_survey['subunit'].replace({'GOMED':'KG MEDIA','SIRKULASI':'HARKOM'})
     df_sap_selected['directorate'] = df_sap_selected['directorate'].replace([0,'#N/A'],'-')
@@ -110,21 +41,26 @@ def finalize_data():
     df_sap_selected['unit'] = df_sap_selected['unit'].replace('GOMED','KG MEDIA')
     df_sap_selected['subunit'] = df_sap_selected['subunit'].replace({'GOMED':'KG MEDIA','SIRKULASI':'HARKOM'})
 
-    # Categorizing tenure
-    # Convert the 'tenure' column to numeric, replacing errors with NaN
-    #df_survey['tenure'] = pd.to_numeric(df_survey['tenure'], errors='coerce')
-
     bins = [0, 1, 3, 6, 10, 15, 20, 25, float('inf')]
     labels = ['<1', '1-3', '3-6', '6-10', '10-15', '15-20', '20-25', '>25']
 
     # Apply categorization
-    df_survey['tenure_category'] = pd.cut(df_survey['tenure'], bins=bins, labels=labels, right=False)
+    #df_survey['tenure_category'] = pd.cut(df_survey['tenure'], bins=bins, labels=labels, right=False)
     df_sap_selected['tenure_category'] = pd.cut(df_sap_selected['tenure'], bins=bins, labels=labels, right=False)
 
-    # Replace '#N/A' and 0 with NaN, and fill NaN in KE0 with the average of KE1, KE2, KE3
-    df_survey['KE0'] = pd.to_numeric(df_survey['KE0'], errors='coerce').replace(0, np.nan)
-    df_survey['KE0'] = df_survey['KE0'].fillna(df_survey[['KE1', 'KE2', 'KE3']].mean(axis=1).round(0).astype(int))
+    # Replace empty strings with NaN
+    df_survey = df_survey.replace("", np.nan)
 
+    # Convert all columns that can be numeric
+    df_survey = df_survey.apply(pd.to_numeric, errors="ignore")
+
+    # Replace invalid values with NaN
+    df_survey['KE0'] = pd.to_numeric(df_survey['KE0'], errors='coerce').replace(0, np.nan)
+
+    # Fill KE0 with row mean of KE1–KE3, but allow NA
+    df_survey['KE0'] = df_survey['KE0'].fillna(
+        df_survey[['KE1', 'KE2', 'KE3']].mean(axis=1).round(0)
+    ).astype("Int64")
 
     # Calculate the average for each dimension and round to 1 decimal place
     df_survey['average_kd'] = df_survey[['KD1', 'KD2', 'KD3', 'KD0']].mean(axis=1).round(2)

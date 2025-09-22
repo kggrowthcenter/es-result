@@ -5,8 +5,21 @@ from oauth2client.service_account import ServiceAccountCredentials
 import toml
 
 # Fetch data
+
 @st.cache_resource()
 def fetch_data_survey():
+    secret_info = st.secrets["sheets"]
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(secret_info, scope)
+    client = gspread.authorize(creds)
+    spreadsheet = client.open('ES25 - Combined Data')
+    sheet = spreadsheet.sheet1
+    data = sheet.get_all_records()
+    df_survey = pd.DataFrame(data)
+    return df_survey
+
+@st.cache_resource()
+def fetch_data_survey_2024():
     secret_info = st.secrets["sheets"]
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(secret_info, scope)
@@ -14,8 +27,8 @@ def fetch_data_survey():
     spreadsheet = client.open('Employee Survey 2024')
     sheet = spreadsheet.sheet1
     data = sheet.get_all_records()
-    df_survey = pd.DataFrame(data)
-    return df_survey
+    df_survey_2024 = pd.DataFrame(data)
+    return df_survey_2024
 
 @st.cache_resource()
 def fetch_data_creds():
