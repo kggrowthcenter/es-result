@@ -258,14 +258,15 @@ if st.session_state.get('authentication_status'):
     # Calculate difference
     df_comparison['Difference'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
 
-    # Add row with N (sample size) for each year
-    n_24 = df_survey24_filtered[satisfaction_columns].notna().sum().to_frame().T
-    n_25 = df_survey25_filtered[satisfaction_columns].notna().sum().to_frame().T
+    # Overall N (respondents with at least 1 valid answer)
+    n_24 = df_survey24_filtered[satisfaction_columns].notna().any(axis=1).sum()
+    n_25 = df_survey25_filtered[satisfaction_columns].notna().any(axis=1).sum()
 
+    # Build N row
     n_row = pd.DataFrame({
         'Dimension/Item': ['N'],
-        'Average 2024': [n_24.iloc[0].mean()],  # optionally show mean or sum
-        'Average 2025': [n_25.iloc[0].mean()],
+        'Average 2024': [n_24],
+        'Average 2025': [n_25],
         'Difference': [None]
     })
 
@@ -274,7 +275,12 @@ if st.session_state.get('authentication_status'):
 
     # Display the table without the default index
     st.subheader("Year Comparison", divider="gray")
-    st.dataframe(df_comparison, use_container_width=True)  # st.dataframe automatically hides the default index
+
+    st.dataframe(
+        df_comparison.reset_index(drop=True),  # drop old index
+        use_container_width=True,
+        hide_index=True  # 🚀 hides the index column completely
+    )
 
     # ==============================
     # Choose dataset for charts (based on year filter inside selected_filters)
