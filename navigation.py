@@ -46,17 +46,19 @@ def logout():
     sleep(0.5)
     st.switch_page("streamlit_app.py")
 
-def make_filter(columns_list, df_survey):
-    # Allow the user to select multiple filter columns (unit, subunit, etc.)
+def make_filter(columns_list, df_survey, key_prefix="filter"):
+    # Always include 'year' as first filter option
+    extended_columns = ['year'] + columns_list  
+
     filter_columns = st.multiselect(
         'Filter the data (optional):',
-        options=columns_list,
-        format_func=lambda x: x.capitalize()
+        options=extended_columns,
+        format_func=lambda x: x.capitalize(),
+        key=f"{key_prefix}_columns"
     )
 
-    # Check if 'layer' is selected
     if 'layer' in filter_columns:
-        st.write("""
+        st.write(""" 
         - **Group 1** = Pelaksana
         - **Group 1 Str Layer 5** = Team Leader
         - **Group 2** = Professional setara Officer
@@ -70,31 +72,21 @@ def make_filter(columns_list, df_survey):
         - **Group 5 Str Layer 1** = CEO / Director / Vice Director / Deputy Director / Vice President / Assistant Vice President / Rector
         """)
 
-    # Initialize the filtered data as the original DataFrame
-    filtered_data = df_survey.copy()
-
-    # List to store selected filter values for display in the subheader
-    selected_filters = []
-
-    # Display filter options for each selected filter column
+    selected_filters = {}
     for filter_col in filter_columns:
-        selected_filter_value = st.multiselect(
-            f'Select {filter_col.capitalize()} to filter the data:',
-            options=filtered_data[filter_col].unique(),
-            key=f'filter_{filter_col}'  # Unique key for each filter selectbox
-        )
-        
-        # Check if any values are selected for this filter
-        if selected_filter_value:
-            # Filter the data to include only rows where the column value is in the selected values
-            filtered_data = filtered_data[filtered_data[filter_col].isin(selected_filter_value)]
-            
-            # Add the selected filter values to the list for subheader display
-            selected_filters.append(f"{filter_col.capitalize()}: {', '.join(selected_filter_value)}")
+        if filter_col == "year":
+            values = st.multiselect(
+                f"Select year(s) to filter the data:",
+                options=["2024", "2025"],
+                key=f"{key_prefix}_{filter_col}"
+            )
+        else:
+            values = st.multiselect(
+                f"Select {filter_col.capitalize()} to filter the data:",
+                options=df_survey[filter_col].dropna().unique(),
+                key=f"{key_prefix}_{filter_col}"
+            )
+        if values:
+            selected_filters[filter_col] = values
 
-    # Confidentiality check: return empty DataFrame if filtered data has only 1 record
-    if filtered_data.shape[0] <= 1:
-        st.write("Data is unavailable to protect confidentiality.")
-        return pd.DataFrame(), selected_filters  # Return an empty DataFrame and the selected filters
-    
-    return filtered_data, selected_filters
+    return selected_filters

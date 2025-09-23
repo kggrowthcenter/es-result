@@ -14,11 +14,11 @@ st.set_page_config(
 
 make_sidebar()
 
-df_survey, df_creds, combined_df = finalize_data()
+df_survey25, df_survey24, df_creds = finalize_data()
 
 # Satisfaction dimensions and items
 satisfaction_columns = ['SAT', 'average_kd', 'average_ki', 'average_kr', 'average_pr', 'average_tu', 'average_ke']
-satisfaction_columns_item = ['KD0', 'KD1', 'KD2', 'KD3', 'KE0', 'KE1', 'KE2', 'KE3', 'KI0', 'KI1', 'KI2', 'KI3', 'KI4', 'KI5', 'KR0', 'KR1', 'KR2', 'KR3', 'KR4', 'KR5', 'PR0', 'PR1', 'PR2', 'TU0', 'TU1', 'TU2']  # Replace with actual item-level columns
+satisfaction_columns_item = ['KD0', 'KD1', 'KD2', 'KD3', 'KE0', 'KE1', 'KE2', 'KE3', 'KI0', 'KI1', 'KI2', 'KI3', 'KI4', 'KI5', 'KR0', 'KR1', 'KR2', 'KR3', 'KR4', 'KR5', 'PR0', 'PR1', 'PR2', 'TU0', 'TU1', 'TU2', 'TU3']  # Replace with actual item-level columns
 
 satisfaction_mapping = {
     'SAT': 'Overall Satisfaction',
@@ -56,13 +56,14 @@ satisfaction_mapping_item = {
     'PR2': 'PR2',
     'TU0': 'TU0',
     'TU1': 'TU1',
-    'TU2': 'TU2'
+    'TU2': 'TU2',
+    'TU3': 'TU3'
 }
 
 columns_list = [
-    'unit', 'subunit', 'directorate', 'division', 'department', 'section',
-    'layer', 'status', 'generation', 'gender', 'marital', 'education',
-    'tenure_category', 'children', 'region', 'participation_23'
+    'unit', 'subunit', 'directorate', 'division', 'site', 'department', 'section',
+    'layer', 'status', 'generation', 'gender', 
+    'tenure_category', 'region'
 ]
 
 # Mapping of user-friendly labels
@@ -94,7 +95,11 @@ if st.session_state.get('authentication_status'):
     user_units = df_creds.loc[df_creds['username'] == username, 'unit'].values[0].split(', ')
     
     # Filter the survey data by the user's units (checking if unit is in user's units)
-    df_survey = df_survey[df_survey['subunit'].isin(user_units)]
+    df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
+    df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
+
+    st.write(df_survey25.head())
+    st.write(df_survey24.head())
 
     #with st.expander('df_survey'):
     #    st.write(user_units)
@@ -102,9 +107,6 @@ if st.session_state.get('authentication_status'):
 
     # SECTION - SATISFACTION SCORE
     st.header('Satisfaction Score', divider='rainbow')
-
-    # SECTION - SATISFACTION DIMENSION OF CERTAIN DEMOGRAPHY
-    st.subheader(f'Dimension/Item Comparison', divider='gray')
 
     # Add checkbox to toggle analysis level
     item_level_analysis = st.checkbox("Check to analyze at item level", value=False)
@@ -115,7 +117,7 @@ if st.session_state.get('authentication_status'):
             "Code": [
                 "KD", "KD0", "KD1", "KD2", "KD3", "KE", "KE0", "KE1", "KE2", "KE3", "KI", "KI0", 
                 "KI1", "KI2", "KI3", "KI4", "KI5", "KR", "KR0", "KR1", "KR2", "KR3", "KR4", 
-                "KR5", "PR", "PR0", "PR1", "PR2", "TU", "TU0", "TU1", "TU2"
+                "KR5", "PR", "PR0", "PR1", "PR2", "TU", "TU0", "TU1", "TU2", "TU3"
             ],
             "Description": [
                 "Kebutuhan Dasar",
@@ -149,7 +151,8 @@ if st.session_state.get('authentication_status'):
                 "Tujuan",
                 "Saya menemukan tujuan hidup saya di dalam perusahaan ini.",
                 "Saya merasa tujuan baik 'Mencerahkan kehidupan bangsa' selaras dengan tujuan hidup saya sendiri.",
-                "Saya memiliki keterikatan emosi dengan tujuan 'Mencerahkan kehidupan bangsa'."
+                "Saya memiliki keterikatan emosi dengan tujuan 'Mencerahkan kehidupan bangsa'.",
+                "Saya merasa nilai-nilai perusahaan diterapkan dalam aktivitas pekerjaan sehari-hari di unit kerja saya."
             ]
         }
         
@@ -189,29 +192,134 @@ if st.session_state.get('authentication_status'):
         satisfaction_mapping = satisfaction_mapping
         prefix_mapping = prefix_mapping
 
-    # FILTER
-    
-    # Call the filter function
-    filtered_data, selected_filters = make_filter(columns_list, df_survey)
+    # ==============================
+    # DATASETS
+    # ==============================
+    datasets = {
+        "2024": df_survey24,
+        "2025": df_survey25
+    }
 
-    # MEAN CALCULATION
+    # ==============================
+    # FILTERS (apply to both datasets) - call make_filter once
+    # ==============================
+    # pass a combined dataframe so filter options include all possible values across years
+    combined_for_filters = pd.concat([df_survey24, df_survey25], ignore_index=True)
+    selected_filters = make_filter(columns_list, combined_for_filters, key_prefix="filter")  # returns dict
 
+    def apply_selected_filters(df, selected_filters):
+        if not selected_filters:
+            return df.copy()
+        filtered = df.copy()
+        for col, values in selected_filters.items():
+            if not values:
+                continue
+            # Only attempt to filter if column exists in this dataframe
+            if col in filtered.columns:
+                filtered = filtered[filtered[col].isin(values)]
+        return filtered
+
+    # Apply to both datasets
+    df_survey24_filtered = apply_selected_filters(df_survey24, selected_filters)
+    df_survey25_filtered = apply_selected_filters(df_survey25, selected_filters)
+
+
+    # ==============================
+    # Add missing satisfaction columns as NaN
+    # ==============================
+    for col in satisfaction_columns:
+        if col not in df_survey24_filtered.columns:
+            df_survey24_filtered[col] = pd.NA
+        if col not in df_survey25_filtered.columns:
+            df_survey25_filtered[col] = pd.NA
+
+    # Convert all satisfaction columns to numeric (so mean() works)
+    for col in satisfaction_columns:
+        df_survey24_filtered[col] = pd.to_numeric(df_survey24_filtered[col], errors='coerce')
+        df_survey25_filtered[col] = pd.to_numeric(df_survey25_filtered[col], errors='coerce')
+
+    # ==============================
+    # COMPARISON TABLE (2024 vs 2025)
+    # ==============================
+
+    # Compute averages
+    df_avg_24 = df_survey24_filtered[satisfaction_columns].mean().round(2).reset_index()
+    df_avg_24.columns = ['Dimension/Item', 'Average 2024']
+
+    df_avg_25 = df_survey25_filtered[satisfaction_columns].mean().round(2).reset_index()
+    df_avg_25.columns = ['Dimension/Item', 'Average 2025']
+
+    # Merge 2024 & 2025
+    df_comparison = pd.merge(df_avg_24, df_avg_25, on="Dimension/Item", how="outer")
+
+    # Map user-friendly names (if applicable)
+    df_comparison['Dimension/Item'] = df_comparison['Dimension/Item'].map(satisfaction_mapping).fillna(df_comparison['Dimension/Item'])
+
+    # Calculate difference
+    df_comparison['Difference'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
+
+    # Add row with N (sample size) for each year
+    n_24 = df_survey24_filtered[satisfaction_columns].notna().sum().to_frame().T
+    n_25 = df_survey25_filtered[satisfaction_columns].notna().sum().to_frame().T
+
+    n_row = pd.DataFrame({
+        'Dimension/Item': ['N'],
+        'Average 2024': [n_24.iloc[0].mean()],  # optionally show mean or sum
+        'Average 2025': [n_25.iloc[0].mean()],
+        'Difference': [None]
+    })
+
+    # Concatenate N row to the comparison table
+    df_comparison = pd.concat([df_comparison, n_row], ignore_index=True)
+
+    # Display the table without the default index
+    st.subheader("Year Comparison", divider="gray")
+    st.dataframe(df_comparison, use_container_width=True)  # st.dataframe automatically hides the default index
+
+    # ==============================
+    # Choose dataset for charts (based on year filter inside selected_filters)
+    # ==============================
+    # selected_filters.get('year') will be a list (because make_filter uses multiselect for year)
+    selected_years = selected_filters.get('year', [])
+
+    if not selected_years:
+        # no year selected → default to 2025 (or you can default to both by uncommenting concat below)
+        selected_year = "2025"
+        df_survey = df_survey25_filtered
+    elif len(selected_years) == 1:
+        selected_year = selected_years[0]
+        df_survey = df_survey24_filtered if selected_year == "2024" else df_survey25_filtered
+    else:
+        # both years selected → combine for charts (you may also choose to default to one year)
+        selected_year = ", ".join(selected_years)
+        df_survey = pd.concat([df_survey24_filtered, df_survey25_filtered], ignore_index=True)
+
+    # keep the old variable name used later in your code
+    filtered_data = df_survey
+
+    # SECTION - Dimension/Item COMPARISON
+    st.subheader(f'Dimension/Item Comparison', divider='gray')
+
+    # ==============================
+    # MEAN CALCULATION (use filtered_data)
+    # ==============================
     # Count the number of samples in the filtered data
+    
     sample_size = len(filtered_data)
 
-    # Create a dynamic subheader based on the selected filters
-    filter_display = ', '.join(selected_filters) if selected_filters else 'All Data'
+    # Build a readable filter display (human friendly)
+    if selected_filters:
+        filter_display = " | ".join(
+            f"{col.capitalize()}: {', '.join(map(str, vals))}"
+            for col, vals in selected_filters.items()
+        )
+    else:
+        filter_display = "All Data"
 
     # Calculate the average satisfaction scores for each dimension and overall satisfaction
     df_avg_dimensions = filtered_data[satisfaction_columns].mean().round(2).reset_index()
-
-    # Rename columns for clarity
     df_avg_dimensions.columns = ['dimension', 'average_score']
-
-    # Map the dimension codes to their proper names using satisfaction_mapping
     df_avg_dimensions['dimension'] = df_avg_dimensions['dimension'].map(satisfaction_mapping)
-
-    # Sort the data by the average satisfaction score in descending order
     df_avg_dimensions = df_avg_dimensions.sort_values(by='average_score', ascending=False)
 
     # MEAN CHART

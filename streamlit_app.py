@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # Fetch the credentials from the data source
-df_survey, df_creds, combined_df = finalize_data()
+df_survey25, df_survey24, df_creds = finalize_data()
 
 # Process `df_creds` to extract credentials in the required format
 def extract_credentials(df_creds):
