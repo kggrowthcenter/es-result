@@ -28,7 +28,7 @@ def finalize_data():
     # Apply to all surveys
     df_survey25 = categorize_tenure(df_survey25)
     df_survey24 = categorize_tenure(df_survey24)
-
+    
     # Convert all columns that can be numeric
     df_survey24 = df_survey24.apply(pd.to_numeric, errors="ignore")
     df_survey25 = df_survey25.apply(pd.to_numeric, errors="ignore")
