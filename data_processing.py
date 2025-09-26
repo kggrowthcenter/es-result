@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from fetch_data import fetch_data_survey25, fetch_data_survey24, fetch_data_creds
+from fetch_data import fetch_data_survey25, fetch_data_survey24, fetch_data_survey23, fetch_data_creds
 
 #@st.cache_data()
 def finalize_data():
     df_survey25 = fetch_data_survey25()
     df_survey24 = fetch_data_survey24()
+    df_survey23 = fetch_data_survey23()
     df_creds = fetch_data_creds()
 
     # Categorizing tenure
@@ -28,12 +29,15 @@ def finalize_data():
     # Apply to all surveys
     df_survey25 = categorize_tenure(df_survey25)
     df_survey24 = categorize_tenure(df_survey24)
-    
+    #df_survey23 = categorize_tenure(df_survey23)
+
     # Convert all columns that can be numeric
+    df_survey23 = df_survey23.apply(pd.to_numeric, errors="ignore")
     df_survey24 = df_survey24.apply(pd.to_numeric, errors="ignore")
     df_survey25 = df_survey25.apply(pd.to_numeric, errors="ignore")
 
     # make copies and add 'year' column so filtering by year works
+    df_survey23 = df_survey23.copy()
     df_survey24 = df_survey24.copy()
     df_survey25 = df_survey25.copy()
     df_survey24['year'] = '2024'
@@ -55,6 +59,14 @@ def finalize_data():
     df_survey24['average_pr'] = df_survey24[['PR1', 'PR2', 'PR0']].mean(axis=1).round(2)
     df_survey24['average_tu'] = df_survey24[['TU1', 'TU2', 'TU0']].mean(axis=1).round(2)  # difference here
     df_survey24['average_ke'] = df_survey24[['KE1', 'KE2', 'KE3', 'KE0']].mean(axis=1).round(2)
+   
+    # For df_survey23
+    df_survey23['average_kd'] = df_survey23[['KD1', 'KD2', 'KD3', 'KD0']].mean(axis=1).round(2)
+    df_survey23['average_ki'] = df_survey23[['KI1', 'KI2', 'KI3', 'KI4', 'KI5', 'KI0']].mean(axis=1).round(2)
+    df_survey23['average_kr'] = df_survey23[['KR1', 'KR2', 'KR3', 'KR4', 'KR5', 'KR0']].mean(axis=1).round(2)
+    df_survey23['average_pr'] = df_survey23[['PR1', 'PR2', 'PR0']].mean(axis=1).round(2)
+    df_survey23['average_tu'] = df_survey23[['TU1', 'TU2', 'TU0']].mean(axis=1).round(2)  # difference here
+    df_survey23['average_ke'] = df_survey23[['KE1', 'KE2', 'KE3', 'KE0']].mean(axis=1).round(2)
 
     # Mapping untuk layer
     layer_mapping = {
@@ -73,6 +85,7 @@ def finalize_data():
     }
 
     df_survey25['layer'] = df_survey25['layer'].map(layer_mapping)
+    df_survey23['layer'] = df_survey23['layer'].map(layer_mapping)
 
-    return df_survey25, df_survey24, df_creds
+    return df_survey25, df_survey24, df_survey23, df_creds
 

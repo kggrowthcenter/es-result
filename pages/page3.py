@@ -15,9 +15,11 @@ st.set_page_config(
 
 make_sidebar()
 
-df_survey25, df_survey24, df_creds = finalize_data()
+df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 
 st.write(len(df_survey24))
+
+st.write(len(df_survey23))
 
 # Satisfaction dimensions and items
 satisfaction_columns = ['SAT', 'average_kd', 'average_ki', 'average_kr', 'average_pr', 'average_tu', 'average_ke']

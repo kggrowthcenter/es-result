@@ -12,8 +12,7 @@ st.set_page_config(
 )
 
 make_sidebar()
-df_survey, df_creds, combined_df = finalize_data()
-
+df_survey25, df_survey24, df_survey23, df_creds = finalize_dat
 # FILTER FROM NAVIGATION
 columns_list = [
     'unit', 'subunit', 'directorate', 'division','department', 'section',
