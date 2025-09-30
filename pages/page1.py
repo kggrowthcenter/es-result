@@ -73,6 +73,8 @@ if st.session_state.get('authentication_status'):
     combined_df = pd.concat([df_survey23, df_survey24, df_survey25], ignore_index=True)
 
     df_survey25['category_sat'] = df_survey25['SAT'].apply(categorize)
+    df_survey24['category_sat'] = df_survey24['SAT'].apply(categorize)
+    df_survey23['category_sat'] = df_survey23['SAT'].apply(categorize)
 
     st.header('Demography Overview', divider='rainbow')
 
