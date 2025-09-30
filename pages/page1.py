@@ -68,6 +68,7 @@ if st.session_state.get('authentication_status'):
     user_units = df_creds.loc[df_creds['username'] == username, 'unit'].values[0].split(', ')
     df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
     df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
+    df_survey23 = df_survey23[df_survey23['subunit'].isin(user_units)]
     
     combined_df = pd.concat([df_survey23, df_survey24, df_survey25], ignore_index=True)
 
