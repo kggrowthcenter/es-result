@@ -14,7 +14,7 @@ st.set_page_config(
 make_sidebar()
 
 # Load data
-df_survey, df_creds, combined_df = finalize_data()
+df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 
 # FILTER FROM NAVIGATION (use custom list of columns)
 columns_list = [
