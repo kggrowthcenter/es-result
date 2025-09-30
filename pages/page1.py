@@ -66,7 +66,8 @@ def make_filter(columns_list, df_survey, combined_df):
 if st.session_state.get('authentication_status'):
     username = st.session_state['username']
     user_units = df_creds.loc[df_creds['username'] == username, 'unit'].values[0].split(', ')
-    df_survey = df_survey[df_survey['subunit'].isin(user_units)]
+    df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
+    df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
     combined_df = combined_df[combined_df['subunit'].isin(user_units)]
     df_survey['category_sat'] = df_survey['SAT'].apply(categorize)
 
