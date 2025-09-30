@@ -27,7 +27,9 @@ columns_list = [
 if st.session_state.get('authentication_status'):
     username = st.session_state['username']
     user_units = df_creds.loc[df_creds['username'] == username, 'unit'].values[0].split(', ')
-    df_survey = df_survey[df_survey['subunit'].isin(user_units)]
+    df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
+    df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
+    df_survey23 = df_survey23[df_survey23['subunit'].isin(user_units)]
 
     # Subheader for the Mood Meter
     st.header('Mood Meter Overview', divider='rainbow')
