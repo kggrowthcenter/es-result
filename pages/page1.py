@@ -69,7 +69,7 @@ if st.session_state.get('authentication_status'):
     df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
     df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
     combined_df = combined_df[combined_df['subunit'].isin(user_units)]
-    df_survey['category_sat'] = df_survey['SAT'].apply(categorize)
+   df_survey25['category_sat'] = df_survey25['SAT'].apply(categorize)
 
     st.header('Demography Overview', divider='rainbow')
 
