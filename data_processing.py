@@ -10,6 +10,10 @@ def finalize_data():
     df_survey23 = fetch_data_survey23()
     df_creds = fetch_data_creds()
 
+    df_survey25['tenure'] = pd.to_numeric(df_survey25['tenure'], errors='coerce')
+    df_survey24['tenure'] = pd.to_numeric(df_survey24['tenure'], errors='coerce')
+    df_survey23['tenure'] = pd.to_numeric(df_survey23['tenure'], errors='coerce')
+
     # Categorizing tenure
     def categorize_tenure(df, col='tenure', new_col='tenure_category'):
         bins = [0, 1, 3, 6, 10, 15, 20, 25, float('inf')]
@@ -29,7 +33,7 @@ def finalize_data():
     # Apply to all surveys
     df_survey25 = categorize_tenure(df_survey25)
     df_survey24 = categorize_tenure(df_survey24)
-    #df_survey23 = categorize_tenure(df_survey23)
+    df_survey23 = categorize_tenure(df_survey23)
 
     # Convert all columns that can be numeric
     df_survey23 = df_survey23.apply(pd.to_numeric, errors="ignore")
