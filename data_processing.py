@@ -44,6 +44,7 @@ def finalize_data():
     df_survey23 = df_survey23.copy()
     df_survey24 = df_survey24.copy()
     df_survey25 = df_survey25.copy()
+    df_survey23['year'] = '2023'
     df_survey24['year'] = '2024'
     df_survey25['year'] = '2025'
 
