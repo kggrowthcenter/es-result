@@ -17,9 +17,6 @@ make_sidebar()
 
 df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 
-st.write(len(df_survey24))
-
-st.write(len(df_survey23))
 
 # Satisfaction dimensions and items
 satisfaction_columns = ['SAT', 'average_kd', 'average_ki', 'average_kr', 'average_pr', 'average_tu', 'average_ke']
@@ -102,6 +99,7 @@ if st.session_state.get('authentication_status'):
     # Filter the survey data by the user's units (checking if unit is in user's units)
     df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
     df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
+    df_survey23 = df_survey23[df_survey23['subunit'].isin(user_units)]
 
     # SECTION - SATISFACTION SCORE
     st.header('Satisfaction Score', divider='rainbow')
@@ -194,6 +192,7 @@ if st.session_state.get('authentication_status'):
     # DATASETS
     # ==============================
     datasets = {
+        "2023": df_survey23,
         "2024": df_survey24,
         "2025": df_survey25
     }
@@ -202,7 +201,7 @@ if st.session_state.get('authentication_status'):
     # FILTERS (apply to both datasets) - call make_filter once
     # ==============================
     # pass a combined dataframe so filter options include all possible values across years
-    combined_for_filters = pd.concat([df_survey24, df_survey25], ignore_index=True)
+    combined_for_filters = pd.concat([df_survey23, df_survey24, df_survey25], ignore_index=True)
     selected_filters = make_filter(columns_list, combined_for_filters, key_prefix="filter")  # returns dict
 
     def apply_selected_filters(df, selected_filters):
@@ -218,6 +217,7 @@ if st.session_state.get('authentication_status'):
         return filtered
 
     # Apply to both datasets
+    df_survey23_filtered = apply_selected_filters(df_survey23, selected_filters)
     df_survey24_filtered = apply_selected_filters(df_survey24, selected_filters)
     df_survey25_filtered = apply_selected_filters(df_survey25, selected_filters)
 
@@ -225,6 +225,8 @@ if st.session_state.get('authentication_status'):
     # Add missing satisfaction columns as NaN
     # ==============================
     for col in satisfaction_columns:
+        if col not in df_survey23_filtered.columns:
+            df_survey23_filtered[col] = pd.NA
         if col not in df_survey24_filtered.columns:
             df_survey24_filtered[col] = pd.NA
         if col not in df_survey25_filtered.columns:
@@ -232,6 +234,7 @@ if st.session_state.get('authentication_status'):
 
     # Convert all satisfaction columns to numeric (so mean() works)
     for col in satisfaction_columns:
+        df_survey23_filtered[col] = pd.to_numeric(df_survey23_filtered[col], errors='coerce')
         df_survey24_filtered[col] = pd.to_numeric(df_survey24_filtered[col], errors='coerce')
         df_survey25_filtered[col] = pd.to_numeric(df_survey25_filtered[col], errors='coerce')
     
@@ -240,22 +243,31 @@ if st.session_state.get('authentication_status'):
     # ==============================
 
     # Compute averages
+    df_avg_23 = df_survey23_filtered[satisfaction_columns].mean().round(2).reset_index()
+    df_avg_23.columns = ['Dimension/Item', 'Average 2023']
+
     df_avg_24 = df_survey24_filtered[satisfaction_columns].mean().round(2).reset_index()
     df_avg_24.columns = ['Dimension/Item', 'Average 2024']
 
     df_avg_25 = df_survey25_filtered[satisfaction_columns].mean().round(2).reset_index()
     df_avg_25.columns = ['Dimension/Item', 'Average 2025']
 
-    # Merge 2024 & 2025
-    df_comparison = pd.merge(df_avg_24, df_avg_25, on="Dimension/Item", how="outer")
+    # Merge step by step
+    df_comparison = pd.merge(df_avg_23, df_avg_24, on="Dimension/Item", how="outer")
+    df_comparison = pd.merge(df_comparison, df_avg_25, on="Dimension/Item", how="outer")
 
     # Map user-friendly names (if applicable)
     df_comparison['Dimension/Item'] = df_comparison['Dimension/Item'].map(satisfaction_mapping).fillna(df_comparison['Dimension/Item'])
 
     # Calculate difference
-    df_comparison['Difference'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
+    df_comparison['Diff2324'] = df_comparison['Average 2024'] - df_comparison['Average 2023']
+    df_comparison['Diff2425'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
 
     # Filter hanya yang punya submit_date (bukan NaN dan bukan string kosong)
+    respondents_23 = df_survey23_filtered[
+        df_survey23_filtered['submit_date'].notna() & (df_survey23_filtered['submit_date'] != "")
+    ]
+
     respondents_24 = df_survey24_filtered[
         df_survey24_filtered['submit_date'].notna() & (df_survey24_filtered['submit_date'] != "")
     ]
@@ -265,12 +277,14 @@ if st.session_state.get('authentication_status'):
     ]
 
     # Hitung N
+    n_23 = len(respondents_23)
     n_24 = len(respondents_24)
     n_25 = len(respondents_25)
 
     # Build N row
     n_row = pd.DataFrame({
         'Dimension/Item': ['N'],
+        'Average 2023': [n_23],
         'Average 2024': [n_24],
         'Average 2025': [n_25],
         'Difference': [None]
@@ -289,22 +303,27 @@ if st.session_state.get('authentication_status'):
     )
 
     # ==============================
-    # Choose dataset for charts (based on year filter inside selected_filters)
+    # Choose dataset for charts (now supports 2023, 2024, 2025)
     # ==============================
-    # selected_filters.get('year') will be a list (because make_filter uses multiselect for year)
     selected_years = selected_filters.get('year', [])
 
+    # Map year → corresponding filtered dataframe
+    year_to_df = {
+        "2023": df_survey23_filtered,
+        "2024": df_survey24_filtered,
+        "2025": df_survey25_filtered
+    }
+
     if not selected_years:
-        # no year selected → default to 2025 (or you can default to both by uncommenting concat below)
-        selected_year = "2025"
-        df_survey = df_survey25_filtered
-    elif len(selected_years) == 1:
-        selected_year = selected_years[0]
-        df_survey = df_survey24_filtered if selected_year == "2024" else df_survey25_filtered
-    else:
-        # both years selected → combine for charts (you may also choose to default to one year)
-        selected_year = ", ".join(selected_years)
-        df_survey = pd.concat([df_survey24_filtered, df_survey25_filtered], ignore_index=True)
+        # Default to 2025 if no year selected
+        selected_years = ["2025"]
+
+    # Concatenate the selected years' datasets
+    selected_dfs = [year_to_df[yr] for yr in selected_years if yr in year_to_df]
+    df_survey = pd.concat(selected_dfs, ignore_index=True)
+
+    # For title/display
+    selected_year = ", ".join(selected_years)
 
     # keep the old variable name used later in your code
     filtered_data = df_survey
