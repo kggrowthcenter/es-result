@@ -143,7 +143,7 @@ for year, df in [("2023", df_survey23_filtered), ("2024", df_survey24_filtered),
 df_yearly = pd.DataFrame(yearly_data)
 
 # --- 100% stacked bar chart ---
-st.markdown("### 🧩 Participation Rate Comparison (100% Full Stack)")
+st.markdown("##### 🧩 Participation Rate Comparison")
 colors = {
     "Participants": "#1A2B4C",   
     "Non-participants": "#EAD8C0"  
