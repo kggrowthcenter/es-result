@@ -5,176 +5,252 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-# Set up page configuration
+
 st.set_page_config(
     page_title='Mood Meter',
     page_icon=':😊:', 
 )
 
 make_sidebar()
-
-# Load data
 df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 
-# FILTER FROM NAVIGATION (use custom list of columns)
+# ==============================
+# FILTER CONFIG
+# ==============================
 columns_list = [
-    'unit', 'subunit', 'directorate', 'division', 'department', 'section',
-    'layer', 'status', 'generation', 'gender', 'marital', 'education',
-    'tenure_category', 'children', 'region', 'participation_23'
+    'unit', 'subunit', 'directorate', 'division', 'site', 'department', 'section',
+    'layer', 'status', 'generation', 'gender', 
+    'tenure_category', 'region', 'year'
 ]
 
-# SESSION STATE
+# ==============================
+# MAIN SECTION
+# ==============================
 if st.session_state.get('authentication_status'):
     username = st.session_state['username']
     user_units = df_creds.loc[df_creds['username'] == username, 'unit'].values[0].split(', ')
+
+    # Filter each dataset based on user access
     df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
     df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
     df_survey23 = df_survey23[df_survey23['subunit'].isin(user_units)]
 
-    # Subheader for the Mood Meter
+    # Add year column
+    df_survey25['year'] = 2025
+    df_survey24['year'] = 2024
+    df_survey23['year'] = 2023
+
+    combined_df = pd.concat([df_survey23, df_survey24, df_survey25], ignore_index=True)
+
     st.header('Mood Meter Overview', divider='rainbow')
 
-    # Apply the filter from make_filter (use the filter returned by make_filter)
-    filtered_data, selected_filters = make_filter(columns_list, df_survey)
-    total_participants = filtered_data['nik'].nunique()
+    # ==============================
+    # FILTER SECTION
+    # ==============================
+    selected_filters = make_filter(columns_list, combined_df)
 
-    # Calculate the count of unique 'nik' for each mood level (1-8)
-    mood_counts = filtered_data.groupby('EMO')['nik'].nunique().reindex(range(1, 9), fill_value=0)
+    # Apply selected filters to the combined data
+    filtered_data = combined_df.copy()
+    for col, values in selected_filters.items():
+        if col in filtered_data.columns and values:
+            filtered_data = filtered_data[filtered_data[col].isin(values)]
 
-    # Create a DataFrame for the mood counts
-    mood_table = pd.DataFrame({
-        'Mood Level': mood_counts.index,
-        'User': mood_counts.values,
-    })
+    st.write("Selected filters:", selected_filters)
+    st.write("Combined filtered rows:", len(filtered_data))
 
-    # Define emoticons and descriptions for each mood level
-    emoticons = ['😭', '😞', '😐', '😠', '😄', '😁', '🤩', '😍']
-    keterangan = ['Sedih', 'Kesepian', 'Tertekan', 'Marah', 'Senang', 'Bermakna', 'Tenteram', 'Tenang']
 
-    # Add emoticons and descriptions to the mood_table DataFrame
-    mood_table['Emoticon'] = [emoticons[mood - 1] for mood in mood_table['Mood Level']]
-    mood_table['Description'] = [keterangan[mood - 1] for mood in mood_table['Mood Level']]
+    # ==============================
+    # MOOD METER 100% STACKED BAR
+    # ==============================
+    # Gabungkan semua data hasil filter
 
-    # Create the bar chart using Plotly
-    fig = go.Figure()
+    # Pastikan semua dataframe sudah ada
+    df_survey23_filtered = df_survey23.copy()
+    df_survey24_filtered = df_survey24.copy()
+    df_survey25_filtered = df_survey25.copy()
 
-    mood_colors = ['#8B0000', '#CD5C5C', '#FFA07A', '#FFE4B5', '#FFD700', '#ADFF2F', '#00BFFF', '#00008B']
-
-    fig.add_trace(go.Bar(
-        x=mood_table['Description'],
-        y=mood_table['User'],
-        text=[
-            f"{emo} {user} ({user / total_participants * 100:.1f}%)" 
-            for emo, user in zip(mood_table['Emoticon'], mood_table['User'])
+    # Tambahkan kolom tahun
+    df_survey23_filtered = df_survey23_filtered.assign(year=2023)
+    df_survey24_filtered = df_survey24_filtered.assign(year=2024)
+    df_survey25_filtered = df_survey25_filtered.assign(year=2025)
+    # Gabungkan semua dataframe hasil filter
+    df_all = pd.concat(
+        [
+            df_survey23_filtered.assign(year=2023),
+            df_survey24_filtered.assign(year=2024),
+            df_survey25_filtered.assign(year=2025)
         ],
-        textposition="outside",
-        marker=dict(color=mood_colors),
-        hovertemplate="<b>%{x}</b><br>Emoticon: %{text}<br>User Count: %{y}<extra></extra>"  # Tooltip
-    ))
-
-    # Update layout for title, axis labels, and colors
-    fig.update_layout(
-        title="Mood Level Overview",
-        xaxis_title="Mood Description",
-        yaxis_title="User Count",
-        yaxis=dict(tickformat=".0f"),
-        template="presentation"
+        ignore_index=True
     )
 
-    # Display the bar chart in Streamlit
+
+    # Gabungkan semua data
+    df_combined = pd.concat(
+        [df_survey23_filtered, df_survey24_filtered, df_survey25_filtered],
+        ignore_index=True
+    )
+
+    # Hitung unique nik per EMO per tahun
+    mood_summary = (
+        df_all.groupby(['year', 'EMO'])['nik']
+        .nunique()
+        .reset_index(name='count')
+    )
+
+    # Hitung total per tahun untuk normalisasi 100%
+    total_per_year = mood_summary.groupby('year')['count'].transform('sum')
+    mood_summary['percentage'] = (mood_summary['count'] / total_per_year) * 100
+
+    # Definisikan warna, emotikon, dan deskripsi
+    mood_map = {
+        1: {'emo': '😭', 'desc': 'Sedih', 'color': '#8B0000'},
+        2: {'emo': '😞', 'desc': 'Kesepian', 'color': '#CD5C5C'},
+        3: {'emo': '😐', 'desc': 'Tertekan', 'color': '#FFA07A'},
+        4: {'emo': '😠', 'desc': 'Marah', 'color': '#FFE4B5'},
+        5: {'emo': '😄', 'desc': 'Senang', 'color': '#FFD700'},
+        6: {'emo': '😁', 'desc': 'Bermakna', 'color': '#ADFF2F'},
+        7: {'emo': '🤩', 'desc': 'Tenteram', 'color': '#00BFFF'},
+        8: {'emo': '😍', 'desc': 'Tenang', 'color': '#00008B'}
+    }
+
+    mood_summary['desc'] = mood_summary['EMO'].map(lambda x: mood_map[x]['desc'])
+    mood_summary['emo'] = mood_summary['EMO'].map(lambda x: mood_map[x]['emo'])
+    mood_summary['color'] = mood_summary['EMO'].map(lambda x: mood_map[x]['color'])
+
+    # Label text format: "xx%(n)"
+    mood_summary['label'] = mood_summary.apply(
+        lambda row: f"{row['percentage']:.1f}% ({row['count']})", axis=1
+    )
+
+    # Buat stacked bar chart 100%
+    fig = px.bar(
+        mood_summary,
+        x='year',
+        y='percentage',
+        color='desc',
+        text='label',
+        color_discrete_map={v['desc']: v['color'] for v in mood_map.values()},
+        category_orders={'desc': [v['desc'] for v in mood_map.values()]},
+        custom_data=['emo', 'desc', 'count']
+    )
+
+    # Update layout
+    fig.update_traces(
+        textposition='inside',
+        textfont=dict(size=12, color='black'),
+        hovertemplate=(
+            "<b>%{customdata[1]}</b> %{customdata[0]}<br>"
+            "Tahun: %{x}<br>"
+            "Jumlah: %{customdata[2]}<br>"
+            "Persentase: %{y:.1f}%<extra></extra>"
+        )
+    )
+
+    fig.update_layout(
+        barmode='stack',
+        yaxis=dict(title='Persentase', range=[0, 100], ticksuffix='%'),
+        xaxis_title='Tahun',
+        title='Mood Meter 100% (Per Tahun)',
+        legend_title='Emosi',
+        template='presentation',
+        height=500
+    )
+
     st.plotly_chart(fig, use_container_width=True)
+
     
-    # Filter selection for the additional chart
+    # ==============================
+    # ADDITIONAL CHART: MOOD METER BY FILTER
+    # ==============================
+
+    keterangan = [
+        "1 😭 Sedih",
+        "2 😞 Kesepian",
+        "3 😐 Tertekan",
+        "4 😠 Marah",
+        "5 😄 Senang",
+        "6 😁 Bermakna",
+        "7 🤩 Tenteram",
+        "8 😍 Tenang"
+    ]
     unit_column = st.selectbox(
         'Select the column to compare mood meter by:',
         options=columns_list,
         format_func=lambda x: x.capitalize()
     )
+    # Drop baris yang tidak punya nilai EMO atau unit_column
+    filtered_df = filtered_data.dropna(subset=['EMO', unit_column], how='any')
 
-    # Filter and prepare the data
-    filtered_df = filtered_data.dropna(subset=['EMO', unit_column])
+    if filtered_df.empty:
+        st.info("Tidak ada data yang cocok dengan filter saat ini.")
+    else:
+        # Hitung jumlah mood per kategori
+        mood_counts = filtered_df.groupby([unit_column, 'EMO']).size().unstack(fill_value=0)
 
-    # Count occurrences of each mood level per category and calculate the percentage
-    mood_counts = filtered_df.groupby([unit_column, 'EMO']).size().unstack(fill_value=0)
+        # Confidentiality: hapus baris yang cuma punya 1 responden
+        original_size = mood_counts.shape[0]
+        mood_counts = mood_counts[mood_counts.sum(axis=1) > 1]
+        rows_removed = original_size - mood_counts.shape[0]
 
-    # Confidentiality check: Store original size before filtering
-    original_size = mood_counts.shape[0]
+        if rows_removed > 0:
+            st.write(f"Disclaimer: {rows_removed} entry/entries in the '{unit_column.capitalize()}' column were removed to protect confidentiality (N=1).")
 
-    # Confidentiality check: Remove rows where N=1
-    mood_counts = mood_counts[mood_counts.sum(axis=1) > 1]
+        # Pastikan semua level EMO (1–8) ada
+        for i in range(1, 9):
+            if i not in mood_counts.columns:
+                mood_counts[i] = 0
 
-    # Calculate the number of rows removed
-    rows_removed = original_size - mood_counts.shape[0]
+        mood_counts = mood_counts.reset_index()
+        mood_counts = mood_counts[[unit_column] + list(range(1, 9))]
 
-    # If any rows were removed, show the disclaimer
-    if rows_removed > 0:
-        st.write(f"Disclaimer: {rows_removed} entry/entries in the '{unit_column.capitalize()}' column were removed to protect confidentiality (N=1).")
+        # Ubah ke format panjang
+        mood_counts = mood_counts.melt(
+            id_vars=unit_column,
+            value_vars=list(range(1, 9)),
+            var_name='EMO',
+            value_name='count'
+        )
+        mood_counts['EMO'] = mood_counts['EMO'].astype(int)
 
-    # Ensure all score columns exist
-    if 1 not in mood_counts:
-        mood_counts[1] = 0
-    if 2 not in mood_counts:
-        mood_counts[2] = 0
-    if 3 not in mood_counts:
-        mood_counts[3] = 0
-    if 4 not in mood_counts:
-        mood_counts[4] = 0
-    if 5 not in mood_counts:
-        mood_counts[5] = 0
-    if 6 not in mood_counts:
-        mood_counts[6] = 0
-    if 7 not in mood_counts:
-        mood_counts[7] = 0
-    if 8 not in mood_counts:
-        mood_counts[8] = 0
+        # Hitung persentase per kategori
+        mood_total = mood_counts.groupby(unit_column)['count'].transform('sum')
+        mood_counts['percentage'] = (mood_counts['count'] / mood_total) * 100
+        mood_counts['percentage'] = mood_counts['percentage'].fillna(0)
 
-    # Convert the index back to a column so it can be used as `id_vars` in the melt operation
-    mood_counts = mood_counts.reset_index()
+        mood_colors = ['#8B0000', '#CD5C5C', '#FFA07A', '#FFE4B5', '#FFD700', '#ADFF2F', '#00BFFF', '#00008B']
 
-    # Ensure the correct order of columns before renaming
-    mood_counts = mood_counts[[unit_column, 1, 2, 3, 4, 5, 6, 7, 8]]
+        # Plot dengan Plotly
+        fig = go.Figure()
 
-    # Transform data for Altair: Melt the DataFrame into long format
-    mood_counts = mood_counts.melt(
-        id_vars=unit_column,          # The unit column now reset as a regular column
-        value_vars=[1, 2, 3, 4, 5, 6, 7, 8],  # The EMO columns to melt
-        var_name='EMO',               # New column name for the EMO values
-        value_name='count'            # New column name for the counts
-    )
+        for mood_level in range(1, 9):
+            mood_data = mood_counts[mood_counts['EMO'] == mood_level]
+            if mood_data.empty:
+                continue
 
-    mood_total = mood_counts.groupby(unit_column)['count'].transform('sum')
-    mood_counts['percentage'] = (mood_counts['count'] / mood_total) * 100
+            # Nama safety: kalau index di luar range (seharusnya tidak) fallback ke angka
+            name = keterangan[mood_level - 1] if 0 <= (mood_level - 1) < len(keterangan) else str(mood_level)
 
-    mood_colors = ['#8B0000', '#CD5C5C', '#FFA07A', '#FFE4B5', '#FFD700', '#ADFF2F', '#00BFFF', '#00008B']
-
-    # Create a figure with each mood level as a trace to enable custom text labels
-    fig = go.Figure()
-
-    for mood_level in sorted(mood_counts['EMO'].unique()):
-        mood_data = mood_counts[mood_counts['EMO'] == mood_level]
-        fig.add_trace(
-            go.Bar(
-                x=mood_data['percentage'],
-                y=mood_data[unit_column],
-                name=keterangan[mood_level - 1],
-                orientation='h',
-                text = mood_data.apply(lambda row: f"{row['percentage']:.1f}%\n({row['count']})", axis=1),
-                textposition='inside',
-                marker=dict(color=mood_colors[mood_level - 1]),
-                hoverinfo='name+x+y'
+            fig.add_trace(
+                go.Bar(
+                    x=mood_data['percentage'],
+                    y=mood_data[unit_column],
+                    name=name,
+                    orientation='h',
+                    text=mood_data.apply(lambda row: f"{row['percentage']:.1f}%\n({int(row['count'])})", axis=1),
+                    textposition='inside',
+                    marker=dict(color=mood_colors[mood_level - 1]),
+                    hovertemplate='%{y}<br>' + name + '<br>Persentase: %{x:.1f}%<br>Jumlah: %{text}<extra></extra>'
+                )
             )
+
+        fig.update_layout(
+            title_text=f'Mood Level Distribution by {unit_column.capitalize()}',
+            xaxis_title='Percentage (%)',
+            yaxis_title=unit_column.capitalize(),
+            barmode='stack',
+            template='presentation',
+            width=1000,
+            height=1000
         )
 
-    # Update layout for the stacked bar chart
-    fig.update_layout(
-        title_text=f'Mood Level Distribution by {unit_column.capitalize()}',
-        xaxis_title='Percentage (%)',
-        yaxis_title=unit_column.capitalize(),
-        barmode='stack',
-        template='presentation',
-        width=1000,
-        height=1000 
-    )
-
-    # Display the Plotly chart in Streamlit
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
