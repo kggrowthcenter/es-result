@@ -150,7 +150,7 @@ if st.session_state.get('authentication_status'):
         barmode='stack',
         yaxis=dict(title='Persentase', range=[0, 100], ticksuffix='%'),
         xaxis_title='Tahun',
-        title='Mood Meter 100% (Per Tahun)',
+        title='Mood Meter',
         legend_title='Emosi',
         template='presentation',
         height=500
