@@ -55,8 +55,8 @@ if st.session_state.get('authentication_status'):
         if col in filtered_data.columns and values:
             filtered_data = filtered_data[filtered_data[col].isin(values)]
 
-    st.write("Selected filters:", selected_filters)
-    st.write("Combined filtered rows:", len(filtered_data))
+    #st.write("Selected filters:", selected_filters)
+    #st.write("Combined filtered rows:", len(filtered_data))
 
 
     # ==============================
