@@ -53,7 +53,7 @@ if st.session_state.get("logged_in", False):
     make_sidebar()
 
 # Display the title of the app
-st.write("Welcome to KG Employee Survey Dashboard")
+st.write(### "Welcome to KG Employee Survey Dashboard")
 
 # Display the login form
 authenticator.login('main')
