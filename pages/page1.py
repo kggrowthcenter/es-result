@@ -144,45 +144,91 @@ if st.session_state.get('authentication_status'):
         total = df['nik'].nunique()
         participants = df.loc[df['submit_date'].notna() & (df['submit_date'] != ""), 'nik'].nunique()
         percentage = (participants / total * 100) if total > 0 else 0
-        return {'year': year_label, 'participants': participants, 'total': total, 'percentage': round(percentage, 1)}
+        return {
+            'year': year_label,
+            'participants': participants,
+            'total': total,
+            'percentage': round(percentage, 1)
+        }
 
     yearly_data = []
-    for year, df in [("2023", df_survey23_filtered), ("2024", df_survey24_filtered), ("2025", df_survey25_filtered)]:
+    for year, df in [
+        ("2023", df_survey23_filtered),
+        ("2024", df_survey24_filtered),
+        ("2025", df_survey25_filtered)
+    ]:
         yearly_data.append(calc_participants(df, year))
 
     df_yearly = pd.DataFrame(yearly_data)
 
-    # --- 100% stacked bar chart ---
+    # ==============================
+
     st.markdown("###### 🧩 Participation Rate Comparison")
+
+    # --- Warna ---
     colors = {
         "Participants": "#1A2B4C",
         "Non-participants": "#EAD8C0"
     }
 
+    # --- Summary di atas grafik (centered) ---
+    cols = st.columns(len(df_yearly), gap="large")
+    for i, row in enumerate(df_yearly.itertuples()):
+        with cols[i]:
+            st.markdown(
+                f"""
+                <div style='text-align:center'>
+                    <h5 style='margin-bottom:0'>{row.year}</h5>
+                    <h3 style='margin-top:0;color:#1A2B4C'><b>{row.percentage:.1f}%</b></h3>
+                    <p style='margin-top:-20px;color:grey'>({int(row.participants):,})</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    # --- Hitung tambahan untuk non-participants ---
+    df_yearly['non_percentage'] = 100 - df_yearly['percentage']
+    df_yearly['non_participants'] = df_yearly['total'] - df_yearly['participants']
+
+    # --- Buat grafik stacked ---
     fig = go.Figure()
-    for label, color in zip(["Participants", "Non-participants"], ["#1A2B4C", "#EAD8C0"]):
+
+    for label, color in colors.items():
         if label == "Participants":
             y_values = df_yearly['percentage']
+            n_values = df_yearly['participants']
         else:
-            y_values = 100 - df_yearly['percentage']
+            y_values = df_yearly['non_percentage']
+            n_values = df_yearly['non_participants']
+
         fig.add_trace(go.Bar(
             x=df_yearly['year'],
             y=y_values,
             name=label,
-            text=[f"{v:.1f}%" for v in y_values],
+            text=[f"{v:.1f}% ({int(n):,})" for v, n in zip(y_values, n_values)],
             textposition='inside',
-            marker_color=colors[label]
+            marker_color=color
         ))
 
+    # --- Layout ---
     fig.update_layout(
         barmode='stack',
         yaxis=dict(title="Percentage", range=[0, 100]),
         xaxis=dict(title="Year"),
         legend=dict(orientation="h", y=-0.2),
-        height=400,
+        height=450,
         template="plotly_white"
     )
+
     st.plotly_chart(fig, use_container_width=True)
+
+
+
+
+
+
+
+
 
     st.divider()
 
@@ -251,7 +297,7 @@ if st.session_state.get('authentication_status'):
         # Tambahkan label xxx%(n)
         for trace, year in zip(fig2.data, ['2023', '2024', '2025']):
             trace.customdata = participant_counts[year]
-            trace.texttemplate = '%{x:.1f}% (%{customdata})'
+            trace.texttemplate = '%{x:.1f}%% (%{customdata})'
             trace.textposition = 'inside'
 
         fig2.update_layout(
