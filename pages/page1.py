@@ -251,7 +251,7 @@ if st.session_state.get('authentication_status'):
         # Tambahkan label xxx%(n)
         for trace, year in zip(fig2.data, ['2023', '2024', '2025']):
             trace.customdata = participant_counts[year]
-            trace.texttemplate = '%{x:.1f}%% (%{customdata})'
+            trace.texttemplate = '%{x:.1f}% (%{customdata})'
             trace.textposition = 'inside'
 
         fig2.update_layout(
