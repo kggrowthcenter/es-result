@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title='Categorization', page_icon=':🤝:')
 make_sidebar()
-df_survey, df_creds, combined_df = finalize_data()
+df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 
 # Columns for potential filtering and categorization
 columns_list = [
@@ -43,17 +43,36 @@ if st.session_state.get('authentication_status'):
     user_units = df_creds.loc[df_creds['username'] == username, 'unit'].values[0].split(', ')
     
     # Filter the survey data by the user's units (checking if unit is in user's units)
-    df_survey = df_survey[df_survey['subunit'].isin(user_units)]
+    df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
+    df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
+    df_survey23 = df_survey23[df_survey23['subunit'].isin(user_units)]
 
     # Apply categorization to the relevant columns
-    df_survey['category_sat'] = df_survey['SAT'].apply(categorize)
-    df_survey['category_ke1'] = df_survey['KE1'].apply(categorize)
-    df_survey['category_nps'] = df_survey['NPS'].apply(categorize_NPS)
+    df_survey25['category_sat'] = df_survey25['SAT'].apply(categorize)
+    df_survey25['category_ke1'] = df_survey25['KE1'].apply(categorize)
+    df_survey25['category_nps'] = df_survey25['NPS'].apply(categorize_NPS)
+    df_survey24['category_sat'] = df_survey24['SAT'].apply(categorize)
+    df_survey24['category_ke1'] = df_survey24['KE1'].apply(categorize)
+    df_survey24['category_nps'] = df_survey24['NPS'].apply(categorize_NPS)
+    df_survey23['category_sat'] = df_survey23['SAT'].apply(categorize)
+    df_survey23['category_ke1'] = df_survey23['KE1'].apply(categorize)
+    df_survey23['category_nps'] = df_survey23['NPS'].apply(categorize_NPS)
 
     st.header('Employee Categorization', divider='rainbow')
 
     # Create combined categories based on user selection
     combine_with_nps = st.checkbox("Uncheck for Satisfaction X Likelihood to Stay; Check for Satisfaction X NPS")
+
+    # --- Year selection ---
+    year_options = ["2025", "2024", "2023"]
+    selected_year = st.selectbox("Select Year", year_options)
+
+    if selected_year == "2025":
+        df_survey = df_survey25.copy()
+    elif selected_year == "2024":
+        df_survey = df_survey24.copy()
+    else:
+        df_survey = df_survey23.copy()
 
     if combine_with_nps:
         df_survey['combined_category'] = df_survey.apply(
@@ -73,7 +92,13 @@ if st.session_state.get('authentication_status'):
     # FILTER
 
     # Call the filter function
-    filtered_data, selected_filters = make_filter(columns_list, df_survey)
+    selected_filters = make_filter(columns_list, df_survey, key_prefix="filter")  # returns dict
+
+    # Apply the selected filters to df_survey
+    filtered_data = df_survey.copy()
+    for col, selected_values in selected_filters.items():
+        if selected_values:  # only filter if user selected something
+            filtered_data = filtered_data[filtered_data[col].isin(selected_values)]
 
     # Heatmap of Satisfaction vs Likelihood/NPS
     category_order = ["High", "Medium", "Low"]
