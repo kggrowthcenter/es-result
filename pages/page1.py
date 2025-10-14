@@ -20,7 +20,7 @@ df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 columns_list = [
     'unit', 'subunit', 'directorate', 'division', 'site', 'department', 'section',
     'layer', 'status', 'generation', 'gender', 
-    'tenure_category', 'region', 'year'
+    'tenure_category', 'region'
 ]
 
 # ==============================

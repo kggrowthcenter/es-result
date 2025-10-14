@@ -20,7 +20,7 @@ df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 columns_list = [
     'unit', 'subunit', 'directorate', 'division', 'site', 'department', 'section',
     'layer', 'status', 'generation', 'gender', 
-    'tenure_category', 'region', 'year'
+    'tenure_category', 'region'
 ]
 
 # ==============================
@@ -178,8 +178,16 @@ if st.session_state.get('authentication_status'):
         options=columns_list,
         format_func=lambda x: x.capitalize()
     )
+
+    # Year selector — default to 2025
+    year_options = ["2023", "2024", "2025"]
+    selected_year = st.selectbox("Select Year to Display:", year_options, index=year_options.index("2025"))
+
     # Drop baris yang tidak punya nilai EMO atau unit_column
     filtered_df = filtered_data.dropna(subset=['EMO', unit_column], how='any')
+
+    # Filter by selected year
+    filtered_df = filtered_df[filtered_df['year'] == int(selected_year)]
 
     if filtered_df.empty:
         st.info("Tidak ada data yang cocok dengan filter saat ini.")
@@ -244,7 +252,7 @@ if st.session_state.get('authentication_status'):
             )
 
         fig.update_layout(
-            title_text=f'Mood Level Distribution by {unit_column.capitalize()}',
+            title_text=f'Mood Level Distribution by {unit_column.capitalize()} ({selected_year})',
             xaxis_title='Percentage (%)',
             yaxis_title=unit_column.capitalize(),
             barmode='stack',
