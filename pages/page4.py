@@ -143,7 +143,7 @@ if st.session_state.get('authentication_status'):
         xaxis=dict(title='Year'),
         yaxis=dict(title='Percentage', range=[0, 110]),
         legend_title_text='Category',
-        height=600,
+        height=300,
         template='simple_white'
     )
 
