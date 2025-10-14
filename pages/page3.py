@@ -65,7 +65,7 @@ satisfaction_mapping_item = {
 columns_list = [
     'unit', 'subunit', 'directorate', 'division', 'site', 'department', 'section',
     'layer', 'status', 'generation', 'gender', 
-    'tenure_category', 'region', 'year'
+    'tenure_category', 'region'
 ]
 
 # Mapping of user-friendly labels
@@ -95,7 +95,7 @@ if st.session_state.get('authentication_status'):
 
     # Get the user's units from the credentials and split by commas
     user_units = df_creds.loc[df_creds['username'] == username, 'unit'].values[0].split(', ')
-    st.write(user_units)
+
     # Filter the survey data by the user's units (checking if unit is in user's units)
     df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
     df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
@@ -260,8 +260,8 @@ if st.session_state.get('authentication_status'):
     df_comparison['Dimension/Item'] = df_comparison['Dimension/Item'].map(satisfaction_mapping).fillna(df_comparison['Dimension/Item'])
 
     # Calculate difference
-    df_comparison['Diff2324'] = df_comparison['Average 2024'] - df_comparison['Average 2023']
-    df_comparison['Diff2425'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
+    df_comparison['Progress 2024'] = df_comparison['Average 2024'] - df_comparison['Average 2023']
+    df_comparison['Progress 2025'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
 
     # Filter hanya yang punya submit_date (bukan NaN dan bukan string kosong)
     respondents_23 = df_survey23_filtered[
@@ -286,26 +286,56 @@ if st.session_state.get('authentication_status'):
         'Dimension/Item': ['N'],
         'Average 2023': [n_23],
         'Average 2024': [n_24],
-        'Average 2025': [n_25],
-        'Difference': [None]
+        'Average 2025': [n_25]
     })
 
     # Concatenate N row to the comparison table
     df_comparison = pd.concat([df_comparison, n_row], ignore_index=True)
 
+    # Reorder columns
+    df_comparison = df_comparison[
+        ['Dimension/Item', 'Average 2023', 'Average 2024', 'Progress 2024', 'Average 2025', 'Progress 2025']
+    ]
+
     # Display the table without the default index
     st.subheader("Year Comparison", divider="gray")
 
-    st.dataframe(
-        df_comparison.reset_index(drop=True),  # drop old index
-        use_container_width=True,
-        hide_index=True  # 🚀 hides the index column completely
-    )
+    # ✅ Reset index first
+    df_comparison = df_comparison.reset_index(drop=True)
+
+    def highlight_progress(val):
+        """Return background color style for progress cells."""
+        if pd.isna(val):
+            return ''
+        if val > 0:
+            return 'background-color: #d4edda; color: #155724;'  # light green
+        elif val < 0:
+            return 'background-color: #f8d7da; color: #721c24;'  # light red
+        else:
+            return 'background-color: #e2e3e5; color: #383d41;'  # grey for zero
+
+    # Apply styling
+    df_comparison = df_comparison.style.applymap(
+        highlight_progress, subset=['Progress 2024', 'Progress 2025']
+    ).format({
+        'Average 2023': '{:.2f}',
+        'Average 2024': '{:.2f}',
+        'Average 2025': '{:.2f}',
+        'Progress 2024': '{:+.2f}',
+        'Progress 2025': '{:+.2f}',
+    })
+
+    st.dataframe(df_comparison, use_container_width=True, hide_index=True)
 
     # ==============================
-    # Choose dataset for charts (now supports 2023, 2024, 2025)
+    # YEAR FILTER SECTION (dropdown only)
     # ==============================
-    selected_years = selected_filters.get('year', [])
+    year_options = ["2023", "2024", "2025"]
+    selected_year = st.selectbox(
+        "Select Year to Display:",
+        year_options,
+        index=year_options.index("2025")
+    )
 
     # Map year → corresponding filtered dataframe
     year_to_df = {
@@ -314,22 +344,11 @@ if st.session_state.get('authentication_status'):
         "2025": df_survey25_filtered
     }
 
-    if not selected_years:
-        # Default to 2025 if no year selected
-        selected_years = ["2025"]
+    # Get the selected dataset
+    filtered_data = year_to_df[selected_year]
 
-    # Concatenate the selected years' datasets
-    selected_dfs = [year_to_df[yr] for yr in selected_years if yr in year_to_df]
-    df_survey = pd.concat(selected_dfs, ignore_index=True)
-
-    # For title/display
-    selected_year = ", ".join(selected_years)
-
-    # keep the old variable name used later in your code
-    filtered_data = df_survey
-
-    # SECTION - Dimension/Item COMPARISON
-    st.subheader(f'Dimension/Item Comparison', divider='gray')
+    # For display titles
+    st.subheader(f"Dimension/Item Comparison", divider="gray")
 
     # ==============================
     # MEAN CALCULATION (use filtered_data)
@@ -649,7 +668,7 @@ if st.session_state.get('authentication_status'):
     # Filter columns based on selected prefix
     if selected_prefix:
         # Filter columns based on the selected prefix
-        filtered_columns = [col for col in df_survey.columns if col.startswith(selected_prefix) and col != comparison_column]
+        filtered_columns = [col for col in filtered_data.columns if col.startswith(selected_prefix) and col != comparison_column]
 
         # Melt the DataFrame to long format for the selected prefix
         df_long = filtered_data.melt(id_vars=comparison_column, value_vars=filtered_columns,
@@ -738,111 +757,112 @@ if st.session_state.get('authentication_status'):
     with st.expander('Score Percentage'):
         st.plotly_chart(fig, use_container_width=True)
 
-    # SECTION - ADDITIONAL
-    st.subheader(f'Additional', divider='gray')
+    if False:
+        # SECTION - ADDITIONAL
+        st.subheader(f'Additional', divider='gray')
 
-    # SECTION - MEAN DIFFERENCE TEST
-    df_survey24_filtered["year"] = 2024
-    df_survey25_filtered["year"] = 2025
+        # SECTION - MEAN DIFFERENCE TEST
+        df_survey24_filtered["year"] = 2024
+        df_survey25_filtered["year"] = 2025
 
-    df_survey = pd.concat([df_survey24_filtered, df_survey25_filtered], ignore_index=True)
+        df_survey = pd.concat([df_survey24_filtered, df_survey25_filtered], ignore_index=True)
 
-    # Only keep rows with valid submit_date (not NaN, not empty, not whitespace)
-    valid_mask = df_survey['submit_date'].notna() & (df_survey['submit_date'].astype(str).str.strip() != "")
+        # Only keep rows with valid submit_date (not NaN, not empty, not whitespace)
+        valid_mask = df_survey['submit_date'].notna() & (df_survey['submit_date'].astype(str).str.strip() != "")
 
-    # New expander for testing mean differences
-    with st.expander("Uji Beda Rata-rata Kelompok", expanded=False):
-        st.subheader("Apakah terdapat perbedaan rata-rata kepuasan antar kelompok?", divider='gray')
+        # New expander for testing mean differences
+        with st.expander("Uji Beda Rata-rata Kelompok", expanded=False):
+            st.subheader("Apakah terdapat perbedaan rata-rata kepuasan antar kelompok?", divider='gray')
 
-        # User selects a dimension or overall satisfaction for testing mean difference
-        test_dimension = st.selectbox(
-            "Pilih dimensi/item kepuasan yang ingin diuji beda:",
-            options=satisfaction_columns,
-            format_func=lambda x: satisfaction_mapping.get(x, x)
-        )
+            # User selects a dimension or overall satisfaction for testing mean difference
+            test_dimension = st.selectbox(
+                "Pilih dimensi/item kepuasan yang ingin diuji beda:",
+                options=satisfaction_columns,
+                format_func=lambda x: satisfaction_mapping.get(x, x)
+            )
 
-        # User selects a grouping variable (e.g., unit, gender, etc.)
-        group_column = st.selectbox(
-            "Pilih demografi yang ingin diuji beda:",
-            options=columns_list,
-            format_func=lambda x: x.capitalize()
-        )
+            # User selects a grouping variable (e.g., unit, gender, etc.)
+            group_column = st.selectbox(
+                "Pilih demografi yang ingin diuji beda:",
+                options=columns_list,
+                format_func=lambda x: x.capitalize()
+            )
 
-        # User selects the specific groups to compare
-        selected_groups = st.multiselect(
-            f"Pilih kelompok {group_column.capitalize()} yang ingin diuji beda:",
-            options=df_survey[group_column].unique(),
-            key='group_selection'
-        )
+            # User selects the specific groups to compare
+            selected_groups = st.multiselect(
+                f"Pilih kelompok {group_column.capitalize()} yang ingin diuji beda:",
+                options=df_survey[group_column].unique(),
+                key='group_selection'
+            )
 
-        # Checkbox for comparing a specific group against the overall group
-        compare_with_overall = st.checkbox("Bandingkan dengan Total KG")
+            # Checkbox for comparing a specific group against the overall group
+            compare_with_overall = st.checkbox("Bandingkan dengan Total KG")
 
-        if compare_with_overall and len(selected_groups) == 1:
-            group_data = df_survey[(df_survey[group_column] == selected_groups[0]) & valid_mask][test_dimension]
-            overall_data = df_survey[valid_mask][test_dimension]
+            if compare_with_overall and len(selected_groups) == 1:
+                group_data = df_survey[(df_survey[group_column] == selected_groups[0]) & valid_mask][test_dimension]
+                overall_data = df_survey[valid_mask][test_dimension]
 
-            # Calculate means and sample sizes
-            mean_group = group_data.mean()
-            mean_overall = overall_data.mean()
-            n_group = group_data.notna().sum()
-            n_overall = overall_data.notna().sum()
+                # Calculate means and sample sizes
+                mean_group = group_data.mean()
+                mean_overall = overall_data.mean()
+                n_group = group_data.notna().sum()
+                n_overall = overall_data.notna().sum()
 
-            # Perform t-test
-            t_stat, p_value = stats.ttest_ind(group_data, overall_data, equal_var=False)
+                # Perform t-test
+                t_stat, p_value = stats.ttest_ind(group_data, overall_data, equal_var=False)
 
-            # Display
-            st.write(f"***{selected_groups[0]}** - **Rata-rata:** {mean_group:.2f}, **Total responden:** {n_group}*")
-            st.write(f"***Total KG - Rata-rata:** {mean_overall:.2f}, **Total responden:** {n_overall}*")
-            st.write(f"**t-statistic:** {t_stat:.4f}, **p-value:** {p_value:.4f}")
+                # Display
+                st.write(f"***{selected_groups[0]}** - **Rata-rata:** {mean_group:.2f}, **Total responden:** {n_group}*")
+                st.write(f"***Total KG - Rata-rata:** {mean_overall:.2f}, **Total responden:** {n_overall}*")
+                st.write(f"**t-statistic:** {t_stat:.4f}, **p-value:** {p_value:.4f}")
 
-            test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
-            if p_value < 0.05:
-                st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan Total KG (p < 0.05).")
-            else:
-                st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan Total KG (p ≥ 0.05).")
+                test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
+                if p_value < 0.05:
+                    st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan Total KG (p < 0.05).")
+                else:
+                    st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan Total KG (p ≥ 0.05).")
 
-        elif len(selected_groups) == 2:
-            group1_data = df_survey[(df_survey[group_column] == selected_groups[0]) & valid_mask][test_dimension]
-            group2_data = df_survey[(df_survey[group_column] == selected_groups[1]) & valid_mask][test_dimension]
+            elif len(selected_groups) == 2:
+                group1_data = df_survey[(df_survey[group_column] == selected_groups[0]) & valid_mask][test_dimension]
+                group2_data = df_survey[(df_survey[group_column] == selected_groups[1]) & valid_mask][test_dimension]
 
-            mean_group1 = group1_data.mean()
-            mean_group2 = group2_data.mean()
-            n_group1 = group1_data.notna().sum()
-            n_group2 = group2_data.notna().sum()
+                mean_group1 = group1_data.mean()
+                mean_group2 = group2_data.mean()
+                n_group1 = group1_data.notna().sum()
+                n_group2 = group2_data.notna().sum()
 
-            t_stat, p_value = stats.ttest_ind(group1_data, group2_data, equal_var=False)
+                t_stat, p_value = stats.ttest_ind(group1_data, group2_data, equal_var=False)
 
-            st.write(f"***{selected_groups[0]}** - **Rata-rata:** {mean_group1:.2f}, **Total responden:** {n_group1}*")
-            st.write(f"***{selected_groups[1]}** - **Rata-rata:** {mean_group2:.2f}, **Total responden:** {n_group2}*")
-            st.write(f"**t-statistic:** {t_stat:.4f}, **p-value:** {p_value:.4f}")
+                st.write(f"***{selected_groups[0]}** - **Rata-rata:** {mean_group1:.2f}, **Total responden:** {n_group1}*")
+                st.write(f"***{selected_groups[1]}** - **Rata-rata:** {mean_group2:.2f}, **Total responden:** {n_group2}*")
+                st.write(f"**t-statistic:** {t_stat:.4f}, **p-value:** {p_value:.4f}")
 
-            test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
-            if p_value < 0.05:
-                st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan {selected_groups[1]} (p < 0.05).")
-            else:
-                st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan {selected_groups[1]} (p ≥ 0.05).")
+                test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
+                if p_value < 0.05:
+                    st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan {selected_groups[1]} (p < 0.05).")
+                else:
+                    st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan {selected_groups[1]} (p ≥ 0.05).")
 
-        elif len(selected_groups) > 2:
-            filtered_anova_data = df_survey[(df_survey[group_column].isin(selected_groups)) & valid_mask]
+            elif len(selected_groups) > 2:
+                filtered_anova_data = df_survey[(df_survey[group_column].isin(selected_groups)) & valid_mask]
 
-            groups_data = [filtered_anova_data[filtered_anova_data[group_column] == group][test_dimension] for group in selected_groups]
+                groups_data = [filtered_anova_data[filtered_anova_data[group_column] == group][test_dimension] for group in selected_groups]
 
-            means = [g.mean() for g in groups_data]
-            ns = [g.notna().sum() for g in groups_data]
+                means = [g.mean() for g in groups_data]
+                ns = [g.notna().sum() for g in groups_data]
 
-            f_stat, p_value = stats.f_oneway(*groups_data)
+                f_stat, p_value = stats.f_oneway(*groups_data)
 
-            for group, mean, n in zip(selected_groups, means, ns):
-                st.write(f"***{group}** - **Mean:** {mean:.2f}, **N responden:** {n}*")
-            st.write(f"**F-statistic:** {f_stat:.4f}, **p-value:** {p_value:.4f}")
+                for group, mean, n in zip(selected_groups, means, ns):
+                    st.write(f"***{group}** - **Mean:** {mean:.2f}, **N responden:** {n}*")
+                st.write(f"**F-statistic:** {f_stat:.4f}, **p-value:** {p_value:.4f}")
 
-            test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
-            if p_value < 0.05:
-                st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara kelompok-kelompok yang dipilih (p < 0.05).")
-            else:
-                st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara kelompok-kelompok yang dipilih (p ≥ 0.05).")
+                test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
+                if p_value < 0.05:
+                    st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara kelompok-kelompok yang dipilih (p < 0.05).")
+                else:
+                    st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara kelompok-kelompok yang dipilih (p ≥ 0.05).")
 
-    # Example of extracting respondents in 2024 only (with valid submit_date)
-    df_2024 = df_survey[(df_survey['year'] == 2024) & valid_mask]
+        # Example of extracting respondents in 2024 only (with valid submit_date)
+        df_2024 = df_survey[(df_survey['year'] == 2024) & valid_mask]
 
