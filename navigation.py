@@ -17,7 +17,7 @@ def get_current_page_name():
 
 def make_sidebar():
     with st.sidebar:
-        st.title(":blue_heart: KG Survey Result 2024")
+        st.title(":blue_heart: KG Survey Result")
         st.write("")
         st.write("")
 

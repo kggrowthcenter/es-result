@@ -95,17 +95,17 @@ if st.session_state.get('authentication_status'):
     # ==============================
     # SATISFACTION FILTER
     # ==============================
-    high_satisfaction = st.checkbox("Profil Karyawan Puas (Skor 5)")
-    low_satisfaction = st.checkbox("Profil Karyawan Tidak Puas (Skor 1 dan 2)")
+    #high_satisfaction = st.checkbox("Profil Karyawan Puas (Skor 5)")
+    #low_satisfaction = st.checkbox("Profil Karyawan Tidak Puas (Skor 1 dan 2)")
 
-    if high_satisfaction:
-        combined_df = combined_df[combined_df['category_sat'] == 'High']
-        st.subheader('High Satisfaction Demography')
-    elif low_satisfaction:
-        combined_df = combined_df[combined_df['category_sat'] == 'Low']
-        st.subheader('Low Satisfaction Demography')
-    else:
-        st.subheader('All Demography')
+    #if high_satisfaction:
+    #    combined_df = combined_df[combined_df['category_sat'] == 'High']
+    #    st.subheader('High Satisfaction Demography')
+    #elif low_satisfaction:
+    #    combined_df = combined_df[combined_df['category_sat'] == 'Low']
+    #    st.subheader('Low Satisfaction Demography')
+    #else:
+    #    st.subheader('All Demography')
 
     # ==============================
     # FILTER SECTION
@@ -171,6 +171,7 @@ if st.session_state.get('authentication_status'):
         "Non-participants": "#EAD8C0"
     }
 
+
     # --- Summary di atas grafik (centered) ---
     cols = st.columns(len(df_yearly), gap="large")
     for i, row in enumerate(df_yearly.itertuples()):
@@ -180,7 +181,7 @@ if st.session_state.get('authentication_status'):
                 <div style='text-align:center'>
                     <h5 style='margin-bottom:0'>{row.year}</h5>
                     <h3 style='margin-top:0;color:#1A2B4C'><b>{row.percentage:.1f}%</b></h3>
-                    <p style='margin-top:-20px;color:grey'>({int(row.participants):,})</p>
+                    <p style='margin-top:-20px;color:grey'>({int(row.participants):,}/{int(row.total):,})</p>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -191,36 +192,36 @@ if st.session_state.get('authentication_status'):
     df_yearly['non_participants'] = df_yearly['total'] - df_yearly['participants']
 
     # --- Buat grafik stacked ---
-    fig = go.Figure()
+    #fig = go.Figure()
 
-    for label, color in colors.items():
-        if label == "Participants":
-            y_values = df_yearly['percentage']
-            n_values = df_yearly['participants']
-        else:
-            y_values = df_yearly['non_percentage']
-            n_values = df_yearly['non_participants']
+    #for label, color in colors.items():
+    #    if label == "Participants":
+    #        y_values = df_yearly['percentage']
+    #        n_values = df_yearly['participants']
+    #    else:
+    #        y_values = df_yearly['non_percentage']
+    #        n_values = df_yearly['non_participants']
 
-        fig.add_trace(go.Bar(
-            x=df_yearly['year'],
-            y=y_values,
-            name=label,
-            text=[f"{v:.1f}% ({int(n):,})" for v, n in zip(y_values, n_values)],
-            textposition='inside',
-            marker_color=color
-        ))
+    #    fig.add_trace(go.Bar(
+    #        x=df_yearly['year'],
+    #        y=y_values,
+    #        name=label,
+    #        text=[f"{v:.1f}% ({int(n):,})" for v, n in zip(y_values, n_values)],
+    #        textposition='inside',
+    #        marker_color=color
+    #    ))
 
     # --- Layout ---
-    fig.update_layout(
-        barmode='stack',
-        yaxis=dict(title="Percentage", range=[0, 100]),
-        xaxis=dict(title="Year"),
-        legend=dict(orientation="h", y=-0.2),
-        height=450,
-        template="plotly_white"
-    )
+    #fig.update_layout(
+    #    barmode='stack',
+    #    yaxis=dict(title="Percentage", range=[0, 100]),
+    #    xaxis=dict(title="Year"),
+    #   legend=dict(orientation="h", y=-0.2),
+    #    height=450,
+    #    template="plotly_white"
+    #)
 
-    st.plotly_chart(fig, use_container_width=True)
+    #st.plotly_chart(fig, use_container_width=True)
 
 
 
@@ -233,7 +234,7 @@ if st.session_state.get('authentication_status'):
     st.divider()
 
     # ==============================
-    # 🎯 DYNAMIC METRIC BY FILTER
+    # 🎯 DYNAMIC METRIC BY FILTER (Year-selectable)
     # ==============================
     st.markdown("#### 🎛️ Participation by Selected Attribute")
 
@@ -245,58 +246,70 @@ if st.session_state.get('authentication_status'):
 
     unit_column = st.selectbox("Select the demography by:", column_list)
 
-    # Gabungkan semua tahun
+    # Year selector — default to 2025
+    year_options = ["2023", "2024", "2025"]
+    selected_year = st.selectbox("Select Year to Display:", year_options, index=year_options.index("2025"))
+
+    # Gabungkan semua tahun dulu
     combined_years = pd.concat([
         df_survey23_filtered.assign(year="2023"),
         df_survey24_filtered.assign(year="2024"),
         df_survey25_filtered.assign(year="2025")
     ], ignore_index=True)
 
-    if unit_column in combined_years.columns:
-        df_filtered = combined_years.copy()
+    # Filter by selected year first
+    df_year_selected = combined_years[combined_years['year'] == selected_year]
 
-        # Hitung peserta dan total unik per unit per tahun
+    if unit_column in df_year_selected.columns:
+        df_filtered = df_year_selected.copy()
+
+        # Buat kolom status partisipasi
+        df_filtered['status_participation'] = df_filtered['submit_date'].apply(
+            lambda x: 'Done' if pd.notna(x) and x != "" else 'Not Done'
+        )
+
+        # Hitung jumlah unik NIK per unit-column dan status
         grouped = (
-            df_filtered.groupby(['year', unit_column])
-            .agg(
-                total_participant=('nik', 'nunique'),
-                participant=('submit_date', lambda x: x.notna().sum())
-            )
+            df_filtered.groupby([unit_column, 'status_participation'])
+            .agg(count=('nik', 'nunique'))
             .reset_index()
         )
 
-        # Hitung persentase
-        grouped['percentage'] = grouped['participant'] / grouped['total_participant'] * 100
+        # Hitung total per unit untuk persentase
+        totals = grouped.groupby(unit_column)['count'].transform('sum')
+        grouped['percentage'] = grouped['count'] / totals * 100
 
-        # Pivot agar tiap tahun jadi kolom
-        pivot_df = grouped.pivot(index=unit_column, columns='year', values='participant').fillna(0)
+        # Pivot untuk plot stacked bar
+        pivot_df = grouped.pivot(index=unit_column, columns='status_participation', values='percentage').fillna(0)
+        pivot_counts = grouped.pivot(index=unit_column, columns='status_participation', values='count').fillna(0)
 
-        # Normalisasi ke 100% (tiap unit total = 100)
-        pivot_df = pivot_df.div(pivot_df.sum(axis=1), axis=0) * 100
+        # Pastikan kolom Done dan Not Done selalu ada
+        for col in ['Done', 'Not Done']:
+            if col not in pivot_df.columns:
+                pivot_df[col] = 0
+                pivot_counts[col] = 0
+
         pivot_df = pivot_df.reset_index()
+        pivot_counts = pivot_counts.reset_index()
 
-        # Untuk label jumlah peserta
-        participant_counts = grouped.pivot(index=unit_column, columns='year', values='participant').fillna(0)
-        participant_counts = participant_counts.reset_index()
-
-        # Plot horizontal stacked bar
+        # Plot horizontal stacked bar (Done vs Not Done)
         fig2 = px.bar(
             pivot_df,
             y=unit_column,
-            x=['2023', '2024', '2025'],
+            x=['Done', 'Not Done'],
             barmode='stack',
             orientation='h',
-            title=f'Participation Distribution by {unit_column.capitalize()}',
+            title=f'Participation Status Distribution by {unit_column.capitalize()} ({selected_year})',
             color_discrete_map={
-                '2023': 'lightsteelblue',  
-                '2024': 'antiquewhite',  
-                '2025': 'midnightblue' 
+                'Done': '#1A2B4C',
+                'Not Done': '#EAD8C0'
             }
         )
 
-        # Tambahkan label xxx%(n)
-        for trace, year in zip(fig2.data, ['2023', '2024', '2025']):
-            trace.customdata = participant_counts[year]
+        # Tambahkan label persentase + jumlah
+        for trace in fig2.data:
+            status = trace.name
+            trace.customdata = pivot_counts[status]
             trace.texttemplate = '%{x:.1f}%% (%{customdata})'
             trace.textposition = 'inside'
 
@@ -305,7 +318,7 @@ if st.session_state.get('authentication_status'):
             yaxis=dict(title=unit_column.capitalize(), categoryorder='total ascending'),
             height=700,
             template="plotly_white",
-            legend_title_text="Year",
+            legend_title_text="Participation Status",
             bargap=0.2
         )
 
@@ -313,4 +326,3 @@ if st.session_state.get('authentication_status'):
 
     else:
         st.warning(f"Column '{unit_column}' not found in data.")
-
