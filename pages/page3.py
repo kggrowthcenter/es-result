@@ -174,7 +174,7 @@ if st.session_state.get('authentication_status'):
         satisfaction_map = satisfaction_mapping
 
     # Recalculate SAT dynamically from raw item-level columns
-    if st.checkbox("Use average of satisfaction items for Overall Satisfaction", value=True):
+    if st.checkbox("Use average of satisfaction items for Overall Satisfaction", value=False):
         for df in [df_survey23, df_survey24, df_survey25]:
             existing_cols = [c for c in satisfaction_columns_item if c in df.columns]  # only existing columns
             if existing_cols:
