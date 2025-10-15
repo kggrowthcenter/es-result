@@ -173,6 +173,13 @@ if st.session_state.get('authentication_status'):
         satisfaction_cols = satisfaction_columns
         satisfaction_map = satisfaction_mapping
 
+    # Recalculate SAT dynamically from raw item-level columns
+    if st.checkbox("Use average of satisfaction items for Overall Satisfaction", value=True):
+        for df in [df_survey23, df_survey24, df_survey25]:
+            existing_cols = [c for c in satisfaction_columns_item if c in df.columns]  # only existing columns
+            if existing_cols:
+                df['SAT'] = df[existing_cols].mean(axis=1)
+
     # Filters
     combined_for_filters = pd.concat([df_survey23, df_survey24, df_survey25], ignore_index=True)
     selected_filters = make_filter(columns_list, combined_for_filters, key_prefix="filter")
