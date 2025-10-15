@@ -47,46 +47,38 @@ def logout():
     st.switch_page("streamlit_app.py")
 
 def make_filter(columns_list, df_survey, key_prefix="filter"):
-    # Always include 'year' as first filter option
-    extended_columns = ['year'] + columns_list  
-
+    # Remove 'year' — only use provided columns_list
     filter_columns = st.multiselect(
         'Filter the data (optional):',
-        options=extended_columns,
+        options=columns_list,
         format_func=lambda x: x.capitalize(),
         key=f"{key_prefix}_columns"
     )
 
     if 'layer' in filter_columns:
         st.write(""" 
-        - **Group 1** = Pelaksana
-        - **Group 1 Str Layer 5** = Team Leader
-        - **Group 2** = Professional setara Officer
-        - **Group 2 Str Layer 4** = Superintendent
-        - **Group 3** = Professional setara Manager (Specialist / Senior Officer)
-        - **Group 3 Str Layer 3A** = Manager
-        - **Group 3 Str Layer 3B** = Senior Manager
-        - **Group 4** = Professional setara GM (Advisor)
-        - **Group 4 Str Layer 2** = GM / Senior GM / Vice GM / Deputy GM / Vice Rector
-        - **Group 5** = Professional setara Director (Consultant)
+        - **Group 1** = Pelaksana  
+        - **Group 1 Str Layer 5** = Team Leader  
+        - **Group 2** = Professional setara Officer  
+        - **Group 2 Str Layer 4** = Superintendent  
+        - **Group 3** = Professional setara Manager (Specialist / Senior Officer)  
+        - **Group 3 Str Layer 3A** = Manager  
+        - **Group 3 Str Layer 3B** = Senior Manager  
+        - **Group 4** = Professional setara GM (Advisor)  
+        - **Group 4 Str Layer 2** = GM / Senior GM / Vice GM / Deputy GM / Vice Rector  
+        - **Group 5** = Professional setara Director (Consultant)  
         - **Group 5 Str Layer 1** = CEO / Director / Vice Director / Deputy Director / Vice President / Assistant Vice President / Rector
         """)
 
     selected_filters = {}
     for filter_col in filter_columns:
-        if filter_col == "year":
-            values = st.multiselect(
-                f"Select year(s) to filter the data:",
-                options=["2024", "2025"],
-                key=f"{key_prefix}_{filter_col}"
-            )
-        else:
-            values = st.multiselect(
-                f"Select {filter_col.capitalize()} to filter the data:",
-                options=df_survey[filter_col].dropna().unique(),
-                key=f"{key_prefix}_{filter_col}"
-            )
+        values = st.multiselect(
+            f"Select {filter_col.capitalize()} to filter the data:",
+            options=df_survey[filter_col].dropna().unique(),
+            key=f"{key_prefix}_{filter_col}"
+        )
         if values:
             selected_filters[filter_col] = values
 
     return selected_filters
+

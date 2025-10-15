@@ -1,26 +1,32 @@
 from navigation import make_sidebar, make_filter
 import streamlit as st
 from data_processing import finalize_data
-import altair as alt
 from scipy import stats
 import pandas as pd
 import plotly.express as px
 import numpy as np
 
-
-st.set_page_config(
-    page_title='Satisfaction',
-    page_icon=':👍:', 
-)
-
+st.set_page_config(page_title='Satisfaction', page_icon=':👍:')
 make_sidebar()
 
+# Load data
 df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 
+# -----------------------
+# Configuration / mappings
+# -----------------------
+satisfaction_columns = [
+    'SAT', 'average_kd', 'average_ki', 'average_kr',
+    'average_pr', 'average_tu', 'average_ke'
+]
 
-# Satisfaction dimensions and items
-satisfaction_columns = ['SAT', 'average_kd', 'average_ki', 'average_kr', 'average_pr', 'average_tu', 'average_ke']
-satisfaction_columns_item = ['KD0', 'KD1', 'KD2', 'KD3', 'KE0', 'KE1', 'KE2', 'KE3', 'KI0', 'KI1', 'KI2', 'KI3', 'KI4', 'KI5', 'KR0', 'KR1', 'KR2', 'KR3', 'KR4', 'KR5', 'PR0', 'PR1', 'PR2', 'TU0', 'TU1', 'TU2', 'TU3']  # Replace with actual item-level columns
+satisfaction_columns_item = [
+    'KD0', 'KD1', 'KD2', 'KD3', 'KE0', 'KE1', 'KE2', 'KE3',
+    'KI0', 'KI1', 'KI2', 'KI3', 'KI4', 'KI5',
+    'KR0', 'KR1', 'KR2', 'KR3', 'KR4', 'KR5',
+    'PR0', 'PR1', 'PR2',
+    'TU0', 'TU1', 'TU2', 'TU3'
+]
 
 satisfaction_mapping = {
     'SAT': 'Overall Satisfaction',
@@ -32,43 +38,13 @@ satisfaction_mapping = {
     'average_ke': 'Keterlekatan'
 }
 
-satisfaction_mapping_item = {
-    'KD0': 'KD0',
-    'KD1': 'KD1',
-    'KD2': 'KD2',
-    'KD3': 'KD3',
-    'KE0': 'KE0',
-    'KE1': 'KE1',
-    'KE2': 'KE2',
-    'KE3': 'KE3',
-    'KI0': 'KI0',
-    'KI1': 'KI1',
-    'KI2': 'KI2',
-    'KI3': 'KI3',
-    'KI4': 'KI4',
-    'KI5': 'KI5',
-    'KR0': 'KR0',
-    'KR1': 'KR1',
-    'KR2': 'KR2',
-    'KR3': 'KR3',
-    'KR4': 'KR4',
-    'KR5': 'KR5',
-    'PR0': 'PR0',
-    'PR1': 'PR1',
-    'PR2': 'PR2',
-    'TU0': 'TU0',
-    'TU1': 'TU1',
-    'TU2': 'TU2',
-    'TU3': 'TU3'
-}
+satisfaction_mapping_item = {k: k for k in satisfaction_columns_item}
 
 columns_list = [
-    'unit', 'subunit', 'directorate', 'division', 'site', 'department', 'section',
-    'layer', 'status', 'generation', 'gender', 
-    'tenure_category', 'region'
+    'unit', 'subunit', 'directorate', 'site', 'division',  'department', 'section',
+    'layer', 'work_contract', 'generation', 'gender', 'tenure_category', 'region'
 ]
 
-# Mapping of user-friendly labels
 prefix_mapping = {
     "SAT": "Overall Satisfaction",
     "KD": "Kebutuhan Dasar",
@@ -79,7 +55,6 @@ prefix_mapping = {
     "KE": "Keterlekatan"
 }
 
-# Define custom labels for the legend
 score_labels = {
     "1": "Sangat Tidak Setuju",
     "2": "Tidak Setuju",
@@ -88,26 +63,40 @@ score_labels = {
     "5": "Sangat Setuju"
 }
 
-# Extract the logged-in user's unit after authentication
+# -----------------------
+# Utility: highlight function (reused)
+# -----------------------
+def highlight_progress(val):
+    """Return background color style for progress cells."""
+    if pd.isna(val):
+        return ''
+    try:
+        v = float(val)
+    except Exception:
+        return ''
+    if v > 0:
+        return 'background-color: #d4edda; color: #155724;'  # light green
+    elif v < 0:
+        return 'background-color: #f8d7da; color: #721c24;'  # light red
+    else:
+        return 'background-color: #e2e3e5; color: #383d41;'  # grey for zero
+
+# -----------------------
+# Authorization / scoping by user
+# -----------------------
 if st.session_state.get('authentication_status'):
-    # Retrieve the username from session state
     username = st.session_state['username']
-
-    # Get the user's units from the credentials and split by commas
     user_units = df_creds.loc[df_creds['username'] == username, 'unit'].values[0].split(', ')
-
-    # Filter the survey data by the user's units (checking if unit is in user's units)
     df_survey25 = df_survey25[df_survey25['subunit'].isin(user_units)]
     df_survey24 = df_survey24[df_survey24['subunit'].isin(user_units)]
     df_survey23 = df_survey23[df_survey23['subunit'].isin(user_units)]
 
-    # SECTION - SATISFACTION SCORE
     st.header('Satisfaction Score', divider='rainbow')
 
-    # Add checkbox to toggle analysis level
+    # Item-level toggle
     item_level_analysis = st.checkbox("Check to analyze at item level", value=False)
 
-    # If the checkbox is selected, display descriptions in a table
+    # Choose columns based on toggle
     if item_level_analysis:
         data = {
             "Code": [
@@ -178,285 +167,199 @@ if st.session_state.get('authentication_status'):
         # Display the styled table using st.markdown with unsafe_allow_html=True
         st.markdown(table_html, unsafe_allow_html=True)
 
-    # Choose columns and mapping based on the selected analysis level
-    if item_level_analysis:
-        satisfaction_columns = satisfaction_columns_item
-        satisfaction_mapping = satisfaction_mapping_item
-        prefix_mapping = satisfaction_mapping_item
+        satisfaction_cols = satisfaction_columns_item
+        satisfaction_map = satisfaction_mapping_item
     else:
-        satisfaction_columns = satisfaction_columns
-        satisfaction_mapping = satisfaction_mapping
-        prefix_mapping = prefix_mapping
+        satisfaction_cols = satisfaction_columns
+        satisfaction_map = satisfaction_mapping
 
-    # ==============================
-    # DATASETS
-    # ==============================
-    datasets = {
-        "2023": df_survey23,
-        "2024": df_survey24,
-        "2025": df_survey25
-    }
-
-    # ==============================
-    # FILTERS (apply to both datasets) - call make_filter once
-    # ==============================
-    # pass a combined dataframe so filter options include all possible values across years
+    # Filters
     combined_for_filters = pd.concat([df_survey23, df_survey24, df_survey25], ignore_index=True)
-    selected_filters = make_filter(columns_list, combined_for_filters, key_prefix="filter")  # returns dict
+    selected_filters = make_filter(columns_list, combined_for_filters, key_prefix="filter")
 
     def apply_selected_filters(df, selected_filters):
         if not selected_filters:
             return df.copy()
         filtered = df.copy()
         for col, values in selected_filters.items():
-            if not values:
-                continue
-            # Only attempt to filter if column exists in this dataframe
-            if col in filtered.columns:
+            if values and col in filtered.columns:
                 filtered = filtered[filtered[col].isin(values)]
         return filtered
 
-    # Apply to both datasets
     df_survey23_filtered = apply_selected_filters(df_survey23, selected_filters)
     df_survey24_filtered = apply_selected_filters(df_survey24, selected_filters)
     df_survey25_filtered = apply_selected_filters(df_survey25, selected_filters)
 
-    # ==============================
-    # Add missing satisfaction columns as NaN
-    # ==============================
-    for col in satisfaction_columns:
-        if col not in df_survey23_filtered.columns:
-            df_survey23_filtered[col] = pd.NA
-        if col not in df_survey24_filtered.columns:
-            df_survey24_filtered[col] = pd.NA
-        if col not in df_survey25_filtered.columns:
-            df_survey25_filtered[col] = pd.NA
+    # Ensure numeric
+    for col in satisfaction_cols:
+        for df in [df_survey23_filtered, df_survey24_filtered, df_survey25_filtered]:
+            if col not in df.columns:
+                df[col] = pd.NA
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # Convert all satisfaction columns to numeric (so mean() works)
-    for col in satisfaction_columns:
-        df_survey23_filtered[col] = pd.to_numeric(df_survey23_filtered[col], errors='coerce')
-        df_survey24_filtered[col] = pd.to_numeric(df_survey24_filtered[col], errors='coerce')
-        df_survey25_filtered[col] = pd.to_numeric(df_survey25_filtered[col], errors='coerce')
-    
-    # ==============================
-    # COMPARISON TABLE (2024 vs 2025)
-    # ==============================
-
-    # Compute averages
-    df_avg_23 = df_survey23_filtered[satisfaction_columns].mean().round(2).reset_index()
+    # -----------------------
+    # Year Comparison Table
+    # -----------------------
+    df_avg_23 = df_survey23_filtered[satisfaction_cols].mean().round(2).reset_index()
     df_avg_23.columns = ['Dimension/Item', 'Average 2023']
-
-    df_avg_24 = df_survey24_filtered[satisfaction_columns].mean().round(2).reset_index()
+    df_avg_24 = df_survey24_filtered[satisfaction_cols].mean().round(2).reset_index()
     df_avg_24.columns = ['Dimension/Item', 'Average 2024']
-
-    df_avg_25 = df_survey25_filtered[satisfaction_columns].mean().round(2).reset_index()
+    df_avg_25 = df_survey25_filtered[satisfaction_cols].mean().round(2).reset_index()
     df_avg_25.columns = ['Dimension/Item', 'Average 2025']
 
-    # Merge step by step
     df_comparison = pd.merge(df_avg_23, df_avg_24, on="Dimension/Item", how="outer")
     df_comparison = pd.merge(df_comparison, df_avg_25, on="Dimension/Item", how="outer")
 
-    # Map user-friendly names (if applicable)
-    df_comparison['Dimension/Item'] = df_comparison['Dimension/Item'].map(satisfaction_mapping).fillna(df_comparison['Dimension/Item'])
-
-    # Calculate difference
+    df_comparison['Dimension/Item'] = df_comparison['Dimension/Item'].map(satisfaction_map).fillna(df_comparison['Dimension/Item'])
+    
     df_comparison['Progress 2024'] = df_comparison['Average 2024'] - df_comparison['Average 2023']
     df_comparison['Progress 2025'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
 
-    # Filter hanya yang punya submit_date (bukan NaN dan bukan string kosong)
-    respondents_23 = df_survey23_filtered[
-        df_survey23_filtered['submit_date'].notna() & (df_survey23_filtered['submit_date'] != "")
-    ]
+    n_23 = len(df_survey23_filtered)
+    n_24 = len(df_survey24_filtered)
+    n_25 = len(df_survey25_filtered)
 
-    respondents_24 = df_survey24_filtered[
-        df_survey24_filtered['submit_date'].notna() & (df_survey24_filtered['submit_date'] != "")
-    ]
-
-    respondents_25 = df_survey25_filtered[
-        df_survey25_filtered['submit_date'].notna() & (df_survey25_filtered['submit_date'] != "")
-    ]
-
-    # Hitung N
-    n_23 = len(respondents_23)
-    n_24 = len(respondents_24)
-    n_25 = len(respondents_25)
-
-    # Build N row
     n_row = pd.DataFrame({
         'Dimension/Item': ['N'],
         'Average 2023': [n_23],
         'Average 2024': [n_24],
-        'Average 2025': [n_25]
+        'Average 2025': [n_25],
+        'Progress 2024': [n_24 - n_23],
+        'Progress 2025': [n_25 - n_24]
     })
 
-    # Concatenate N row to the comparison table
     df_comparison = pd.concat([df_comparison, n_row], ignore_index=True)
+    
+    df_comparison = df_comparison[['Dimension/Item', 'Average 2023', 'Average 2024', 'Progress 2024', 'Average 2025', 'Progress 2025']]
 
-    # Reorder columns
-    df_comparison = df_comparison[
-        ['Dimension/Item', 'Average 2023', 'Average 2024', 'Progress 2024', 'Average 2025', 'Progress 2025']
-    ]
+    st.subheader("🟣 Year-over-Year Dimension Comparison", divider="gray")
+    
+    styled_year = (
+        df_comparison.style
+        .applymap(highlight_progress, subset=['Progress 2024', 'Progress 2025'])
+        .format({
+            'Average 2023': '{:.2f}',
+            'Average 2024': '{:.2f}',
+            'Average 2025': '{:.2f}',
+            'Progress 2024': '{:+.2f}',
+            'Progress 2025': '{:+.2f}'
+        }, na_rep='–')
+    )
+    st.dataframe(styled_year, use_container_width=True, hide_index=True)
 
-    # Display the table without the default index
-    st.subheader("Year Comparison", divider="gray")
+    # -----------------------
+    # Demography Comparison Table (Moved here)
+    # -----------------------
+    st.subheader("🟢 Year-over-Year Demographic Comparison", divider="gray")
 
-    # ✅ Reset index first
-    df_comparison = df_comparison.reset_index(drop=True)
-
-    def highlight_progress(val):
-        """Return background color style for progress cells."""
-        if pd.isna(val):
-            return ''
-        if val > 0:
-            return 'background-color: #d4edda; color: #155724;'  # light green
-        elif val < 0:
-            return 'background-color: #f8d7da; color: #721c24;'  # light red
-        else:
-            return 'background-color: #e2e3e5; color: #383d41;'  # grey for zero
-
-    # Apply styling
-    df_comparison = df_comparison.style.applymap(
-        highlight_progress, subset=['Progress 2024', 'Progress 2025']
-    ).format({
-        'Average 2023': '{:.2f}',
-        'Average 2024': '{:.2f}',
-        'Average 2025': '{:.2f}',
-        'Progress 2024': '{:+.2f}',
-        'Progress 2025': '{:+.2f}',
-    })
-
-    st.dataframe(df_comparison, use_container_width=True, hide_index=True)
-
-    # ==============================
-    # YEAR FILTER SECTION (dropdown only)
-    # ==============================
-    year_options = ["2023", "2024", "2025"]
-    selected_year = st.selectbox(
-        "Select Year to Display:",
-        year_options,
-        index=year_options.index("2025")
+    selected_dimension_for_demo_table = st.selectbox(
+        "Select Dimension/Item for Demography Table:",
+        options=list(satisfaction_map.keys()),
+        format_func=lambda x: satisfaction_map.get(x, x),
+        key="demo_table_dimension"
     )
 
-    # Map year → corresponding filtered dataframe
-    year_to_df = {
-        "2023": df_survey23_filtered,
-        "2024": df_survey24_filtered,
-        "2025": df_survey25_filtered
-    }
+    selected_demography_for_table = st.selectbox(
+        "Select Demographic Variable:",
+        options=columns_list,
+        format_func=lambda x: x.capitalize(),
+        key="demo_table_demography"
+    )
 
-    # Get the selected dataset
-    filtered_data = year_to_df[selected_year]
+    def summarize_by_demography(df, year, dimension_col, demo_col):
+        if demo_col not in df.columns:
+            return pd.DataFrame(columns=[demo_col, f'{year} Mean', f'{year} N'])
+        
+        temp = df.copy()
+        # Handle NaN and ensure it's string for grouping
+        temp[demo_col] = temp[demo_col].fillna("Missing").astype(str)
 
-    # For display titles
-    st.subheader(f"Dimension/Item Comparison", divider="gray")
+        grouped = (
+            temp.groupby(demo_col)[dimension_col]
+            .agg(['mean', 'count'])
+            .round(2)
+            .reset_index()
+        )
+        grouped.columns = [demo_col, f'{year} Mean', f'{year} N']
+        return grouped
 
-    # ==============================
-    # MEAN CALCULATION (use filtered_data)
-    # ==============================
-    
-    # Ensure blanks are treated as NaN
-    filtered_data['submit_date'] = filtered_data['submit_date'].replace("", pd.NA)
 
-    # Count only rows with a non-null submitted_on
-    sample_size = filtered_data['submit_date'].notna().sum()
+    demo_23 = summarize_by_demography(df_survey23_filtered, 2023, selected_dimension_for_demo_table, selected_demography_for_table)
+    demo_24 = summarize_by_demography(df_survey24_filtered, 2024, selected_dimension_for_demo_table, selected_demography_for_table)
+    demo_25 = summarize_by_demography(df_survey25_filtered, 2025, selected_dimension_for_demo_table, selected_demography_for_table)
 
-    # Build a readable filter display (human friendly)
-    if selected_filters:
-        filter_display_parts = []
-        # Add Year explicitly if selected
-        if "year" in selected_filters and selected_filters["year"]:
-            filter_display_parts.append(f"Year: {', '.join(map(str, selected_filters['year']))}")
-        else:
-            # Default year = 2025 if not selected
-            filter_display_parts.append("Year: 2025")
+    demo_merge = demo_23.merge(demo_24, on=selected_demography_for_table, how='outer')
+    demo_merge = demo_merge.merge(demo_25, on=selected_demography_for_table, how='outer')
 
-        # Add other filters
-        for col, vals in selected_filters.items():
-            if col == "year":  # already handled
-                continue
-            if vals:
-                filter_display_parts.append(f"{col.capitalize()}: {', '.join(map(str, vals))}")
+    for col in [f'{y} Mean' for y in [2023, 2024, 2025]]:
+        if col in demo_merge.columns:
+            demo_merge[col] = pd.to_numeric(demo_merge[col], errors='coerce')
 
-        filter_display = " | ".join(filter_display_parts)
+    demo_merge['Progress 2024'] = demo_merge['2024 Mean'] - demo_merge['2023 Mean']
+    demo_merge['Progress 2025'] = demo_merge['2025 Mean'] - demo_merge['2024 Mean']
 
+    cols = [selected_demography_for_table]
+    if '2023 Mean' in demo_merge.columns: cols += ['2023 N', '2023 Mean']
+    if '2024 Mean' in demo_merge.columns: cols += ['2024 N', '2024 Mean', 'Progress 2024']
+    if '2025 Mean' in demo_merge.columns: cols += ['2025 N', '2025 Mean', 'Progress 2025']
+    demo_merge = demo_merge[cols]
+
+    if '2025 Mean' in demo_merge.columns:
+        demo_merge = demo_merge.sort_values(by='2025 Mean', ascending=False)
+
+    # Format table: 2 decimals for Mean/Progress, no decimals for N
+    format_dict = {}
+    for c in demo_merge.columns:
+        if 'Mean' in c or 'Progress' in c:
+            format_dict[c] = '{:.2f}'
+        elif c.endswith('N'):
+            format_dict[c] = '{:,.0f}'  # no decimals, thousands separator if needed
+
+    styled_demo = (
+        demo_merge.style
+        .applymap(highlight_progress, subset=['Progress 2024', 'Progress 2025'])
+        .format(format_dict, na_rep='–')
+    )
+
+    st.dataframe(styled_demo, use_container_width=True, hide_index=True)
+
+    # -----------------------
+    # Score Percentage charts (with year selector)
+    # -----------------------
+    st.subheader("🔵 Score Distribution by Dimension", divider="gray")
+
+    selected_year_for_chart = st.radio(
+        "Select Year for Score Percentage Charts:",
+        options=[2023, 2024, 2025],
+        horizontal=True,
+        key="score_percentage_year"
+    )
+
+    # Pick the filtered dataframe based on selected year
+    if selected_year_for_chart == 2023:
+        df_selected_year = df_survey23_filtered
+    elif selected_year_for_chart == 2024:
+        df_selected_year = df_survey24_filtered
     else:
-        # No filters at all → default to Year 2025
-        filter_display = "Year: 2025"
+        df_selected_year = df_survey25_filtered
 
-    # Calculate the average satisfaction scores for each dimension and overall satisfaction
-    df_avg_dimensions = filtered_data[satisfaction_columns].mean().round(2).reset_index()
-    df_avg_dimensions.columns = ['dimension', 'average_score']
-    df_avg_dimensions['dimension'] = df_avg_dimensions['dimension'].map(satisfaction_mapping)
-    df_avg_dimensions = df_avg_dimensions.sort_values(by='average_score', ascending=False)
-
-    # MEAN CHART
-    
-    # Create the bar chart with no hover data
-    dimension_mean = px.bar(
-        df_avg_dimensions,
-        x='dimension',
-        y='average_score',
-        text='average_score',                    # Display score labels on each bar
-        hover_data={}                            # Disable tooltips by passing an empty dictionary
-    )
-
-    # Customize appearance, setting color conditionally for "Overall Satisfaction"
-    dimension_mean.update_traces(
-        texttemplate='%{text:.2f}',              # Format labels to 1 decimal
-        marker_color=[
-            '#A020F0' if dim == 'Overall Satisfaction' else '#1f77b4' 
-            for dim in df_avg_dimensions['dimension']
-        ],
-        textposition='outside'
-    )
-
-    # Configure layout, fully removing the title
-    dimension_mean.update_layout(
-        title_text=f"Mean Score of {filter_display} (N={sample_size})",
-        xaxis_title=" ",
-        yaxis_title=" ",
-        xaxis=dict(tickangle=0, tickfont=dict(size=10)),
-        yaxis=dict(range=[0, df_avg_dimensions['average_score'].max() + 1])
-    )
-
-    # Display in Streamlit
-    st.plotly_chart(dimension_mean, use_container_width=True)
-
-    # SCORE CALCULATION
-
-    # Initialize an empty DataFrame for the result
     df_score_dimension = pd.DataFrame(columns=[1, 2, 3, 4, 5])
 
-    # Sort dimensions by average score and exclude "Overall Satisfaction"
-    sorted_dimensions = (
-        df_avg_dimensions
-        .sort_values(by='average_score', ascending=False)
-        ['dimension']
-        .loc[lambda x: x != "Overall Satisfaction"]
-        .tolist()
-    )
-
-    # Iterate through each prefix in the mapping
     for prefix, label in prefix_mapping.items():
-        # Filter columns that start with the prefix
-        relevant_columns = [col for col in filtered_data.columns if col.lower().startswith(prefix.lower())]
-        
-        # Subset the DataFrame to only the relevant columns
+        relevant_columns = [col for col in df_selected_year.columns if col.lower().startswith(prefix.lower())]
         if relevant_columns:
-            prefix_data = filtered_data[relevant_columns].melt(value_name='Score').drop(columns='variable')
-            
-            # Count the occurrences of each score (1 to 5)
-            score_counts = (prefix_data['Score'].value_counts(normalize=True).reindex(range(1, 6), fill_value=0) * 100).round(1)
-            
-            # Add the counts as a new row in the result DataFrame
+            prefix_data = df_selected_year[relevant_columns].melt(value_name='Score').drop(columns='variable')
+            score_counts = (
+                prefix_data['Score']
+                .value_counts(normalize=True)
+                .reindex(range(1, 6), fill_value=0) * 100
+            ).round(1)
             df_score_dimension.loc[label] = score_counts.values
 
-    # Display the final DataFrame
     df_score_dimension.reset_index(inplace=True)
     df_score_dimension.columns = ['Dimension', 1, 2, 3, 4, 5]
     df_score_dimension.columns = df_score_dimension.columns.astype(str)
 
-    # Transform data for Altair
     dimension_score_melt = df_score_dimension.melt(
         id_vars='Dimension',
         value_vars=['1', '2', '3', '4', '5'],
@@ -464,405 +367,41 @@ if st.session_state.get('authentication_status'):
         value_name='Percent'
     )
 
-    # SCORE CHART
+    overall_data = dimension_score_melt[dimension_score_melt['Dimension'] == 'Overall Satisfaction']
+    other_data = dimension_score_melt[dimension_score_melt['Dimension'] != 'Overall Satisfaction']
 
-    # Separate the data for Overall Satisfaction and other dimensions
-    overall_satisfaction_data = dimension_score_melt[dimension_score_melt['Dimension'] == 'Overall Satisfaction']
-    other_dimensions_data = dimension_score_melt[dimension_score_melt['Dimension'] != 'Overall Satisfaction']
-
-    # Create the Plotly stacked bar chart for Overall Satisfaction
     chart1 = px.bar(
-        overall_satisfaction_data,
+        overall_data,
         x="Percent",
         y="Dimension",
         color="Score",
         orientation="h",
-        text="Percent",  # Add labels to display percentages
-        color_discrete_sequence=px.colors.sequential.Purples,  # Use a distinct color for Overall Satisfaction
-        title=" ",
+        text="Percent",
+        color_discrete_sequence=px.colors.sequential.Purples
     )
+    chart1.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
 
-    # Update layout for chart1
-    chart1.update_traces(texttemplate='%{text:.1f}%', textposition='inside')  # Format labels and position inside bars
-    chart1.update_layout(
-        xaxis_title=" ",
-        yaxis_title=" ",
-        legend_title=" ",
-        legend=dict(
-            orientation="h",  # Horizontal legend
-            yanchor="top",
-            y=-0.2,  # Position below the chart
-            xanchor="center",
-            x=0.5
-        ),
-        bargap=0.02
-    )
-
-    # Create the Plotly stacked bar chart for other dimensions
     chart2 = px.bar(
-        other_dimensions_data,
+        other_data,
         x="Percent",
         y="Dimension",
         color="Score",
         orientation="h",
-        text="Percent",  # Add labels to display percentages
-        color_discrete_sequence=px.colors.sequential.Blues,  # Use a distinct color for other dimensions
-        title=" ",
-        category_orders={"Dimension": sorted_dimensions}  # Order dimensions by sorted average score
+        text="Percent",
+        color_discrete_sequence=px.colors.sequential.Blues
     )
+    chart2.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
 
-    # Update layout for chart2
-    chart2.update_traces(texttemplate='%{text:.1f}%', textposition='inside')  # Format labels and position inside bars
-    chart2.update_layout(
-        xaxis_title=" ",
-        yaxis_title=" ",
-        legend_title=" ",
-        legend=dict(
-            orientation="h",  # Horizontal legend
-            yanchor="top",
-            y=-0.2,  # Position below the chart
-            xanchor="center",
-            x=0.5
-        ),
-        bargap=0.02
-    )
+    try:
+        chart1.for_each_trace(lambda t: t.update(name=score_labels[t.name]))
+        chart2.for_each_trace(lambda t: t.update(name=score_labels[t.name]))
+    except Exception:
+        pass
 
-    # Update the legend text using the custom labels
-    chart1.for_each_trace(lambda t: t.update(name=score_labels[t.name]))
-    chart2.for_each_trace(lambda t: t.update(name=score_labels[t.name]))
+    # Display charts (no expander)
+    st.plotly_chart(chart1, use_container_width=True)
+    st.plotly_chart(chart2, use_container_width=True)
 
-    # Display charts in Streamlit
-    with st.expander('Score Percentage'):
-        st.plotly_chart(chart1, use_container_width=True)
-        st.plotly_chart(chart2, use_container_width=True)
-    
-    # SECTION - SATISFACTION COMPARED BY DEMOGRAPHY
 
-    # Display subheader
-    st.subheader(f'Demography Comparison', divider='gray')
-
-    # FILTER 2
-    # User selection for comparison column and satisfaction dimension
-    satisfaction_column = st.selectbox(
-        'Select the dimension/item to display:',
-        options=list(satisfaction_mapping.keys()),
-        format_func=lambda x: satisfaction_mapping.get(x, x)
-    )
-
-    comparison_column = st.selectbox(
-        'Select the column for comparison:',
-        options=columns_list,
-        format_func=lambda x: x.capitalize()  # Capitalizes the comparison column name for display
-    )
-
-
-    # MEAN 2 CALCULATION
- 
-    # Calculate the overall average for the selected satisfaction column
-    overall_average = filtered_data[satisfaction_column].mean().round(2)
-
-    # Calculate the total sample size (N)
-    total_n = filtered_data[satisfaction_column].count()
-
-    # Display the overall average and total N before the bar chart
-    #st.metric(label=f"Overall Average for {satisfaction_mapping[satisfaction_column]}", 
-    st.metric(label=f"Total Mean", 
-            value=f"{overall_average} (N= {total_n})")
-
-    # Group by the selected column, calculate average satisfaction score and count (N)
-    df_avg_demography = filtered_data.groupby(comparison_column).agg(
-        avg_satisfaction=(satisfaction_column, 'mean'),
-        count=(satisfaction_column, 'count')
-    ).round(2).reset_index()
-
-    # Confidentiality check: Store original size before filtering
-    original_size = df_avg_demography.shape[0]
-
-    # Confidentiality check: Remove rows where N=1
-    df_avg_demography = df_avg_demography[df_avg_demography['count'] > 1]
-
-    # Calculate the number of rows removed
-    rows_removed = original_size - df_avg_demography.shape[0]
-
-    # If any rows were removed, show the disclaimer
-    if rows_removed > 0:
-        st.write(f"Disclaimer: {rows_removed} entry/entries in the '{comparison_column.capitalize()}' column were removed to protect confidentiality (N=1).")
-
-    # Determine sorting behavior based on comparison_column
-    if comparison_column in ['layer', 'tenure_category']:
-        # Sort by the comparison column itself
-        df_avg_demography = df_avg_demography.sort_values(by=comparison_column, ascending=False)
-    else:
-        # Sort by average satisfaction score in descending order
-        df_avg_demography = df_avg_demography.sort_values(by='avg_satisfaction', ascending=True)
-
-    # MEAN 2 CHART
-
-    # Calculate a dynamic height with a minimum threshold
-    min_height = 300  # Set a minimum height (adjust as necessary)
-    dynamic_height = max(len(df_avg_demography) * 40, min_height)  # Ensure height is at least min_height
-
-    # Create the bar chart with no hover data
-    demography_mean = px.bar(
-        df_avg_demography,
-        y=comparison_column,
-        x='avg_satisfaction',
-        hover_data={}                            # Disable tooltips by passing an empty dictionary
-    )
-
-    # Customize appearance, setting color conditionally for "Overall Satisfaction"
-    demography_mean.update_traces(
-        texttemplate='%{x:.2f} (N=%{customdata[0]})',  # Customize label format
-        customdata=df_avg_demography[['count']].values,  # Pass count as custom data for use in texttemplate
-        marker_color='#1f77b4',
-        textposition='outside'
-    )
-
-    # Configure layout, fully removing the title
-    demography_mean.update_layout(
-        title_text=f'{satisfaction_mapping[satisfaction_column]} compared by {comparison_column.capitalize()}',                           # Ensure no title is displayed
-        yaxis_title=" ",
-        xaxis_title=" ",
-        yaxis=dict(tickangle=0, tickfont=dict(size=10)),  # Adjust x-axis label font size
-        xaxis=dict(range=[0, df_avg_demography['avg_satisfaction'].max() + 1]),  # Adjust y-axis range
-        height=dynamic_height  # Set the dynamic height
-    )
-
-    # Display in Streamlit
-    st.plotly_chart(demography_mean, use_container_width=True)
-
-    # Check if 'layer' is selected
-    if 'layer' in comparison_column:
-        st.write("""
-        - **Group 1** = Pelaksana
-        - **Group 1 Str Layer 5** = Team Leader
-        - **Group 2** = Professional setara Officer
-        - **Group 2 Str Layer 4** = Superintendent
-        - **Group 3** = Professional setara Manager (Specialist / Senior Officer)
-        - **Group 3 Str Layer 3A** = Manager
-        - **Group 3 Str Layer 3B** = Senior Manager
-        - **Group 4** = Professional setara GM (Advisor)
-        - **Group 4 Str Layer 2** = GM / Senior GM / Vice GM / Deputy GM / Vice Rector
-        - **Group 5** = Professional setara Director (Consultant)
-        - **Group 5 Str Layer 1** = CEO / Director / Vice Director / Deputy Director / Vice President / Assistant Vice President / Rector
-        """)
-
-    # SCORE 2 CALCULATION
-
-    # Adjust the sorting behavior based on the comparison_column for the list
-    if comparison_column in ['layer', 'tenure_category']:
-        # Sort by the comparison column itself and get the list
-        sorted_demography = df_avg_demography.sort_values(by=comparison_column, ascending=True)[comparison_column].tolist()
-    else:
-        # Sort by avg_satisfaction and get the list
-        sorted_demography = df_avg_demography.sort_values(by='avg_satisfaction', ascending=False)[comparison_column].tolist()
-
-    # Automatically set the prefix based on the selected dimension
-    prefix = [key for key, value in prefix_mapping.items() if value == satisfaction_mapping[satisfaction_column]]
-    if prefix:
-        selected_prefix = prefix[0]  # Select the first match if available
-    else:
-        st.warning("No matching prefix found for this dimension.")
-        selected_prefix = None  # Default to None if no match
-
-    # Filter columns based on selected prefix
-    if selected_prefix:
-        # Filter columns based on the selected prefix
-        filtered_columns = [col for col in filtered_data.columns if col.startswith(selected_prefix) and col != comparison_column]
-
-        # Melt the DataFrame to long format for the selected prefix
-        df_long = filtered_data.melt(id_vars=comparison_column, value_vars=filtered_columns,
-                                var_name='Question', value_name='Score')
-
-    # Melt the DataFrame to long format
-    df_long = filtered_data.melt(id_vars=comparison_column, value_vars=filtered_columns,
-                            var_name='Question', value_name='Score')
-
-    # Count the scores
-    score_counts = df_long.groupby([comparison_column, 'Score']).size().unstack(fill_value=0)
-
-    # Filter out rows where the sum of values across columns is 1
-    score_counts = score_counts[score_counts.sum(axis=1) > 1]
-
-    # Calculate percentages
-    percentage_counts = score_counts.div(score_counts.sum(axis=1), axis=0) * 100
-
-    percentage_counts = percentage_counts.reset_index()
-    
-    # Convert only numeric column headers to integers and remove decimal points
-    percentage_counts.columns = [
-        str(int(float(str(col)))) if str(col).replace('.', '', 1).isdigit() else str(col)
-        for col in percentage_counts.columns
-    ]
-    
-        # Ensure all score columns exist
-    if '1' not in percentage_counts:
-        percentage_counts['1'] = 0
-    if '2' not in percentage_counts:
-        percentage_counts['2'] = 0
-    if '3' not in percentage_counts:
-        percentage_counts['3'] = 0
-    if '4' not in percentage_counts:
-        percentage_counts['4'] = 0
-    if '5' not in percentage_counts:
-        percentage_counts['5'] = 0
-
-    # Ensure the correct order of columns before renaming
-    percentage_counts = percentage_counts[[comparison_column, '1', '2', '3', '4', '5']]
-
-    # Transform data for Altair
-    melted_counts = percentage_counts.melt(
-        id_vars=comparison_column,
-        value_vars=['1', '2', '3', '4', '5'],
-        var_name='Score',
-        value_name='Percent'
-    )
-
-    # SCORE 2 CHART
-
-    # Create the Plotly stacked bar chart
-    fig = px.bar(
-        melted_counts,
-        x="Percent",
-        y=comparison_column,
-        color="Score",
-        orientation="h",
-        text="Percent",                   # Add labels to display percentages
-        color_discrete_sequence=px.colors.sequential.Blues,
-        title=" ",
-        category_orders={comparison_column: sorted_demography}  # Order dimensions by sorted average score
-    )
-
-    # Update layout for label display and legend position
-    fig.update_traces(texttemplate='%{text:.1f}%', textposition='inside')   # Format labels and position inside bars
-    fig.update_layout(
-        xaxis_title=" ",
-        yaxis_title=" ",
-        legend_title=" ",
-        legend=dict(
-            orientation="h",              # Horizontal legend
-            yanchor="top",
-            y=-0.2,                       # Position below the chart
-            xanchor="center",
-            x=0.5
-        ),
-        bargap=0.02,
-        height=dynamic_height  # Set the dynamic height
-    )
-
-    # Update the legend text using the custom labels
-    fig.for_each_trace(lambda t: t.update(name=score_labels[t.name]))
-
-    # Display in Streamlit
-    with st.expander('Score Percentage'):
-        st.plotly_chart(fig, use_container_width=True)
-
-    if False:
-        # SECTION - ADDITIONAL
-        st.subheader(f'Additional', divider='gray')
-
-        # SECTION - MEAN DIFFERENCE TEST
-        df_survey24_filtered["year"] = 2024
-        df_survey25_filtered["year"] = 2025
-
-        df_survey = pd.concat([df_survey24_filtered, df_survey25_filtered], ignore_index=True)
-
-        # Only keep rows with valid submit_date (not NaN, not empty, not whitespace)
-        valid_mask = df_survey['submit_date'].notna() & (df_survey['submit_date'].astype(str).str.strip() != "")
-
-        # New expander for testing mean differences
-        with st.expander("Uji Beda Rata-rata Kelompok", expanded=False):
-            st.subheader("Apakah terdapat perbedaan rata-rata kepuasan antar kelompok?", divider='gray')
-
-            # User selects a dimension or overall satisfaction for testing mean difference
-            test_dimension = st.selectbox(
-                "Pilih dimensi/item kepuasan yang ingin diuji beda:",
-                options=satisfaction_columns,
-                format_func=lambda x: satisfaction_mapping.get(x, x)
-            )
-
-            # User selects a grouping variable (e.g., unit, gender, etc.)
-            group_column = st.selectbox(
-                "Pilih demografi yang ingin diuji beda:",
-                options=columns_list,
-                format_func=lambda x: x.capitalize()
-            )
-
-            # User selects the specific groups to compare
-            selected_groups = st.multiselect(
-                f"Pilih kelompok {group_column.capitalize()} yang ingin diuji beda:",
-                options=df_survey[group_column].unique(),
-                key='group_selection'
-            )
-
-            # Checkbox for comparing a specific group against the overall group
-            compare_with_overall = st.checkbox("Bandingkan dengan Total KG")
-
-            if compare_with_overall and len(selected_groups) == 1:
-                group_data = df_survey[(df_survey[group_column] == selected_groups[0]) & valid_mask][test_dimension]
-                overall_data = df_survey[valid_mask][test_dimension]
-
-                # Calculate means and sample sizes
-                mean_group = group_data.mean()
-                mean_overall = overall_data.mean()
-                n_group = group_data.notna().sum()
-                n_overall = overall_data.notna().sum()
-
-                # Perform t-test
-                t_stat, p_value = stats.ttest_ind(group_data, overall_data, equal_var=False)
-
-                # Display
-                st.write(f"***{selected_groups[0]}** - **Rata-rata:** {mean_group:.2f}, **Total responden:** {n_group}*")
-                st.write(f"***Total KG - Rata-rata:** {mean_overall:.2f}, **Total responden:** {n_overall}*")
-                st.write(f"**t-statistic:** {t_stat:.4f}, **p-value:** {p_value:.4f}")
-
-                test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
-                if p_value < 0.05:
-                    st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan Total KG (p < 0.05).")
-                else:
-                    st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan Total KG (p ≥ 0.05).")
-
-            elif len(selected_groups) == 2:
-                group1_data = df_survey[(df_survey[group_column] == selected_groups[0]) & valid_mask][test_dimension]
-                group2_data = df_survey[(df_survey[group_column] == selected_groups[1]) & valid_mask][test_dimension]
-
-                mean_group1 = group1_data.mean()
-                mean_group2 = group2_data.mean()
-                n_group1 = group1_data.notna().sum()
-                n_group2 = group2_data.notna().sum()
-
-                t_stat, p_value = stats.ttest_ind(group1_data, group2_data, equal_var=False)
-
-                st.write(f"***{selected_groups[0]}** - **Rata-rata:** {mean_group1:.2f}, **Total responden:** {n_group1}*")
-                st.write(f"***{selected_groups[1]}** - **Rata-rata:** {mean_group2:.2f}, **Total responden:** {n_group2}*")
-                st.write(f"**t-statistic:** {t_stat:.4f}, **p-value:** {p_value:.4f}")
-
-                test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
-                if p_value < 0.05:
-                    st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan {selected_groups[1]} (p < 0.05).")
-                else:
-                    st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara {selected_groups[0]} dan {selected_groups[1]} (p ≥ 0.05).")
-
-            elif len(selected_groups) > 2:
-                filtered_anova_data = df_survey[(df_survey[group_column].isin(selected_groups)) & valid_mask]
-
-                groups_data = [filtered_anova_data[filtered_anova_data[group_column] == group][test_dimension] for group in selected_groups]
-
-                means = [g.mean() for g in groups_data]
-                ns = [g.notna().sum() for g in groups_data]
-
-                f_stat, p_value = stats.f_oneway(*groups_data)
-
-                for group, mean, n in zip(selected_groups, means, ns):
-                    st.write(f"***{group}** - **Mean:** {mean:.2f}, **N responden:** {n}*")
-                st.write(f"**F-statistic:** {f_stat:.4f}, **p-value:** {p_value:.4f}")
-
-                test_dimension_label = satisfaction_mapping.get(test_dimension, test_dimension)
-                if p_value < 0.05:
-                    st.success(f"Terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara kelompok-kelompok yang dipilih (p < 0.05).")
-                else:
-                    st.info(f"Tidak terdapat perbedaan rata-rata {test_dimension_label} yang signifikan antara kelompok-kelompok yang dipilih (p ≥ 0.05).")
-
-        # Example of extracting respondents in 2024 only (with valid submit_date)
-        df_2024 = df_survey[(df_survey['year'] == 2024) & valid_mask]
-
+else:
+    st.warning("You are not authenticated — please log in to view this page.")

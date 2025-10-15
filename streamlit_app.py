@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
 st.set_page_config(
-    page_title='Survey Result 2024',
+    page_title='Survey Result',
     page_icon=':blue_heart:', 
 )
 
