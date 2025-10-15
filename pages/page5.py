@@ -89,7 +89,9 @@ if st.session_state.get('authentication_status'):
 
     # SECTION - HEATMAP
 
-    # FILTER
+   # ==============================
+    # FILTER SECTION
+    # ==============================
 
     # Call the filter function
     selected_filters = make_filter(columns_list, df_survey, key_prefix="filter")  # returns dict
@@ -100,6 +102,12 @@ if st.session_state.get('authentication_status'):
         if selected_values:  # only filter if user selected something
             filtered_data = filtered_data[filtered_data[col].isin(selected_values)]
 
+    # Confidentiality check (N ≤ 1)
+    if filtered_data.shape[0] <= 1 and len(selected_filters) > 0:
+        st.warning("⚠️ Data is unavailable to protect confidentiality (N ≤ 1).")
+        filtered_data = df_survey.iloc[0:0].copy()  # ✅ empty but with same columns
+
+    
     # Heatmap of Satisfaction vs Likelihood/NPS
     category_order = ["High", "Medium", "Low"]
     category_order2 = ["Promoter", "Passive", "Detractor"]
