@@ -100,7 +100,7 @@ if st.session_state.get('authentication_status'):
     # Hitung total per tahun untuk normalisasi 100%
     total_per_year = mood_summary.groupby('year')['count'].transform('sum')
     mood_summary['percentage'] = (mood_summary['count'] / total_per_year) * 100
-
+    mood_summary['year'] = mood_summary['year'].astype(str)
     # Definisikan warna, emotikon, dan deskripsi
     mood_map = {
         1: {'emo': '😭', 'desc': 'Sedih', 'color': '#8B0000'},
@@ -130,7 +130,7 @@ if st.session_state.get('authentication_status'):
         color='desc',
         text='label',
         color_discrete_map={v['desc']: v['color'] for v in mood_map.values()},
-        category_orders={'desc': [v['desc'] for v in mood_map.values()]},
+        category_orders={'year': ['2023', '2024', '2025'], 'desc': [v['desc'] for v in mood_map.values()]},
         custom_data=['emo', 'desc', 'count']
     )
 
@@ -145,6 +145,8 @@ if st.session_state.get('authentication_status'):
             "Persentase: %{y:.1f}%<extra></extra>"
         )
     )
+    
+    fig.for_each_trace(lambda t: t.update(textfont_color='white') if t.marker.color in ['#00008B','#8B0000','#CD5C5C'] else None)
 
     fig.update_layout(
         barmode='stack',
@@ -155,7 +157,7 @@ if st.session_state.get('authentication_status'):
         template='presentation',
         height=500
     )
-
+    fig.update_xaxes(type='category')
     st.plotly_chart(fig, use_container_width=True)
 
     
