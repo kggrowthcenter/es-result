@@ -306,8 +306,26 @@ if st.session_state.get('authentication_status'):
         if col in demo_merge.columns:
             demo_merge[col] = pd.to_numeric(demo_merge[col], errors='coerce')
 
-    demo_merge['Progress 2024'] = demo_merge['2024 Mean'] - demo_merge['2023 Mean']
-    demo_merge['Progress 2025'] = demo_merge['2025 Mean'] - demo_merge['2024 Mean']
+    # 🟡 Remove rows where any N column equals 1
+    n_cols = [f'{y} N' for y in [2023, 2024, 2025] if f'{y} N' in demo_merge.columns]
+    rows_removed = 0
+    if n_cols:
+        condition = (demo_merge[n_cols] == 1).any(axis=1)
+        rows_removed = condition.sum()
+        demo_merge = demo_merge[~condition]
+
+    # 📝 Confidentiality disclaimer
+    if rows_removed > 0:
+        st.write(
+            f"Disclaimer: {rows_removed} entry/entries in the "
+            f"'{selected_demography_for_table.capitalize()}' column were removed to protect confidentiality (N=1)."
+        )
+
+    # Calculate Progress
+    if '2023 Mean' in demo_merge.columns and '2024 Mean' in demo_merge.columns:
+        demo_merge['Progress 2024'] = demo_merge['2024 Mean'] - demo_merge['2023 Mean']
+    if '2024 Mean' in demo_merge.columns and '2025 Mean' in demo_merge.columns:
+        demo_merge['Progress 2025'] = demo_merge['2025 Mean'] - demo_merge['2024 Mean']
 
     cols = [selected_demography_for_table]
     if '2023 Mean' in demo_merge.columns: cols += ['2023 N', '2023 Mean']
@@ -342,6 +360,7 @@ if st.session_state.get('authentication_status'):
     selected_year_for_chart = st.radio(
         "Select Year for Score Percentage Charts:",
         options=[2023, 2024, 2025],
+        index=2,  # 0 → 2023, 1 → 2024, 2 → 2025
         horizontal=True,
         key="score_percentage_year"
     )
