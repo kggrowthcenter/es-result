@@ -226,10 +226,11 @@ if st.session_state.get('authentication_status'):
     df_comparison['Progress 2024'] = df_comparison['Average 2024'] - df_comparison['Average 2023']
     df_comparison['Progress 2025'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
 
-    n_23 = len(df_survey23_filtered)
-    n_24 = len(df_survey24_filtered)
-    n_25 = len(df_survey25_filtered)
-
+    # Count only SAT column responses
+    n_23 = df_survey23_filtered['SAT'].count()
+    n_24 = df_survey24_filtered['SAT'].count()
+    n_25 = df_survey25_filtered['SAT'].count()
+    
     n_row = pd.DataFrame({
         'Dimension/Item': ['N'],
         'Average 2023': [n_23],
