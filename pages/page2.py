@@ -57,6 +57,24 @@ if st.session_state.get('authentication_status'):
 
     #st.write("Selected filters:", selected_filters)
     #st.write("Combined filtered rows:", len(filtered_data))
+    # =========================================
+    # 🟡 Remove rows where N per year equals 1
+    # =========================================
+    rows_removed_total = 0
+
+    # Loop per tahun (2023, 2024, 2025)
+    for year in [2023, 2024, 2025]:
+        n_col = f"{year} N"
+        if n_col in filtered_data.columns:
+            before = len(filtered_data)
+            filtered_data = filtered_data[filtered_data[n_col] != 1]
+            rows_removed_total += before - len(filtered_data)
+
+    # 📝 Confidentiality disclaimer
+    if rows_removed_total > 0:
+        st.write(
+            f"Disclaimer: {rows_removed_total} entry/entries were removed to protect confidentiality (N=1) across years 2023–2025."
+        )
 
 
     # ==============================
@@ -92,10 +110,29 @@ if st.session_state.get('authentication_status'):
 
     # Hitung unique nik per EMO per tahun
     mood_summary = (
-        df_all.groupby(['year', 'EMO'])['nik']
+        filtered_data.groupby(['year', 'EMO'])['nik']
         .nunique()
         .reset_index(name='count')
     )
+
+    # =====================================================
+    # 🟡 Confidentiality check: remove years with N=1 total
+    # =====================================================
+    # Hitung jumlah unik nik per tahun di data hasil filter
+    n_per_year = filtered_data.groupby('year')['nik'].nunique().to_dict()
+
+    # Hapus data tahun yang hanya punya 1 responden
+    years_to_remove = [y for y, n in n_per_year.items() if n == 1]
+    rows_removed_total = filtered_data[filtered_data['year'].isin(years_to_remove)].shape[0]
+    filtered_data = filtered_data[~filtered_data['year'].isin(years_to_remove)]
+
+    # 📝 Disclaimer tampil hanya kalau ada yang dihapus
+    if years_to_remove:
+        st.write(
+            f"Disclaimer: Data for year(s) {', '.join(map(str, years_to_remove))} "
+            f"were removed to protect confidentiality (N=1)."
+        )
+
 
     # Hitung total per tahun untuk normalisasi 100%
     total_per_year = mood_summary.groupby('year')['count'].transform('sum')
@@ -122,6 +159,21 @@ if st.session_state.get('authentication_status'):
         lambda row: f"{row['percentage']:.1f}% ({row['count']})", axis=1
     )
 
+
+    # 🚫 Hapus tahun yang hanya punya N=1
+    year_counts = mood_summary.groupby('year')['count'].sum()
+    years_to_remove = year_counts[year_counts <= 1].index.tolist()
+
+    if years_to_remove:
+        st.warning(
+            f"⚠️ Data untuk tahun {', '.join(map(str, years_to_remove))} dihapus karena hanya memiliki satu responden (N=1)."
+        )
+        mood_summary = mood_summary[~mood_summary['year'].isin(years_to_remove)]
+
+    # Kalau semua tahun kehapus (artinya semua N=1), hentikan eksekusi
+    if mood_summary.empty:
+        st.stop()
+
     # Buat stacked bar chart 100%
     fig = px.bar(
         mood_summary,
@@ -145,7 +197,7 @@ if st.session_state.get('authentication_status'):
             "Persentase: %{y:.1f}%<extra></extra>"
         )
     )
-    
+
     fig.for_each_trace(lambda t: t.update(textfont_color='white') if t.marker.color in ['#00008B','#8B0000','#CD5C5C'] else None)
 
     fig.update_layout(
@@ -158,7 +210,9 @@ if st.session_state.get('authentication_status'):
         height=500
     )
     fig.update_xaxes(type='category')
+
     st.plotly_chart(fig, use_container_width=True)
+
 
     
     # ==============================
