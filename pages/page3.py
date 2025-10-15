@@ -190,6 +190,17 @@ if st.session_state.get('authentication_status'):
     df_survey24_filtered = apply_selected_filters(df_survey24, selected_filters)
     df_survey25_filtered = apply_selected_filters(df_survey25, selected_filters)
 
+    # --- CONFIDENTIALITY CHECK ---
+    def confidentiality_guard(df):
+        if df.shape[0] <= 1 and len(selected_filters) > 0:
+            st.warning("⚠️ Data is unavailable to protect confidentiality (N ≤ 1).")
+            return pd.DataFrame()
+        return df
+
+    df_survey23_filtered = confidentiality_guard(df_survey23_filtered)
+    df_survey24_filtered = confidentiality_guard(df_survey24_filtered)
+    df_survey25_filtered = confidentiality_guard(df_survey25_filtered)
+
     # Ensure numeric
     for col in satisfaction_cols:
         for df in [df_survey23_filtered, df_survey24_filtered, df_survey25_filtered]:
