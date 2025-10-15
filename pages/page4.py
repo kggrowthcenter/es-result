@@ -118,7 +118,8 @@ if st.session_state.get('authentication_status'):
     # ==============================
     # STACKED BAR 100%
     # ==============================
-    #nps_df['Year'] = nps_df['Year'].astype(str)
+    # Pastikan kolom Year tetap numerik agar bar tetap terbaca
+    nps_df['Year'] = nps_df['Year'].astype(int)
 
     fig = go.Figure()
 
@@ -128,7 +129,7 @@ if st.session_state.get('authentication_status'):
         y=nps_df['Detractors'],
         name='Detractors',
         marker_color='tomato',
-        text=[f"{v:.1f}% ({results[y]['detractors']})" for y, v in zip(nps_df['Year'], nps_df['Detractors'])],
+        text=[f"{v:.1f}% ({results[int(y)]['detractors']})" for y, v in zip(nps_df['Year'], nps_df['Detractors'])],
         textposition='inside'
     ))
 
@@ -138,7 +139,7 @@ if st.session_state.get('authentication_status'):
         y=nps_df['Passives'],
         name='Passives',
         marker_color='beige',
-        text=[f"{v:.1f}% ({results[y]['passives']})" for y, v in zip(nps_df['Year'], nps_df['Passives'])],
+        text=[f"{v:.1f}% ({results[int(y)]['passives']})" for y, v in zip(nps_df['Year'], nps_df['Passives'])],
         textposition='inside'
     ))
 
@@ -148,7 +149,7 @@ if st.session_state.get('authentication_status'):
         y=nps_df['Promoters'],
         name='Promoters',
         marker_color='cadetblue',
-        text=[f"{v:.1f}% ({results[y]['promoters']})" for y, v in zip(nps_df['Year'], nps_df['Promoters'])],
+        text=[f"{v:.1f}% ({results[int(y)]['promoters']})" for y, v in zip(nps_df['Year'], nps_df['Promoters'])],
         textposition='inside'
     ))
 
@@ -166,7 +167,12 @@ if st.session_state.get('authentication_status'):
     fig.update_layout(
         barmode='stack',
         title='NPS Breakdown by Year',
-        xaxis=dict(title='Year'),
+        xaxis=dict(
+            title='Year',
+            tickmode='array',
+            tickvals=nps_df['Year'],
+            ticktext=[str(int(y)) for y in nps_df['Year']]  # tampil tanpa .5
+        ),
         yaxis=dict(title='Percentage', range=[0, 110]),
         legend_title_text='Category',
         height=600,
@@ -174,6 +180,8 @@ if st.session_state.get('authentication_status'):
     )
 
     st.plotly_chart(fig, use_container_width=True)
+
+
     st.markdown("###### NPS Score Categories")
     legend_columns = st.columns(4)
 
