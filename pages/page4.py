@@ -92,8 +92,34 @@ if st.session_state.get('authentication_status'):
     })
 
     # ==============================
+    # 🚫 Confidentiality check (hapus tahun dengan total responden N=1)
+    # ==============================
+    year_counts = {year: results[year]['total'] for year in [2023, 2024, 2025]}
+    years_to_remove = [year for year, count in year_counts.items() if count <= 1]
+
+    if years_to_remove:
+        st.warning(
+            f"⚠️ Data untuk tahun {', '.join(map(str, years_to_remove))} "
+            f"dihapus untuk melindungi kerahasiaan (N=1)."
+        )
+        nps_df = nps_df[~nps_df['Year'].isin(years_to_remove)]
+
+    # Kalau semua tahun dihapus → stop biar chart nggak muncul
+    if nps_df.empty:
+        st.stop()
+
+
+
+
+
+
+
+
+    # ==============================
     # STACKED BAR 100%
     # ==============================
+    #nps_df['Year'] = nps_df['Year'].astype(str)
+
     fig = go.Figure()
 
     # Detractors
@@ -143,8 +169,8 @@ if st.session_state.get('authentication_status'):
         xaxis=dict(title='Year'),
         yaxis=dict(title='Percentage', range=[0, 110]),
         legend_title_text='Category',
-        height=400,
-        template='simple_white'
+        height=600,
+        template='simple_white',
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -168,7 +194,7 @@ if st.session_state.get('authentication_status'):
     # ==============================
 
     selected_filter = st.selectbox(
-        "Select Filter",
+        " Select Demographic Variable :",
         options=columns_list,
         format_func=lambda x: x.capitalize()
     )
