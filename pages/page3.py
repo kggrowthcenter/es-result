@@ -169,9 +169,11 @@ if st.session_state.get('authentication_status'):
 
         satisfaction_cols = satisfaction_columns_item
         satisfaction_map = satisfaction_mapping_item
+        prefix_mapping = satisfaction_mapping_item
     else:
         satisfaction_cols = satisfaction_columns
         satisfaction_map = satisfaction_mapping
+        prefix_mapping = prefix_mapping
 
     # Recalculate SAT dynamically from raw item-level columns
     if st.checkbox("Use average of satisfaction items for Overall Satisfaction", value=False):
