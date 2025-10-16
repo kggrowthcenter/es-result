@@ -189,7 +189,7 @@ if st.session_state.get('authentication_status'):
         {"label": "Needs Improvement (-100 to 0)", "color": "#c7522a"},
         {"label": "Good (0 to 30)", "color": "#e9c46a"},
         {"label": "Great (30 to 70)", "color": "#74a892"},
-        {"label": "Excellent (70 to 100)", "color": "#264653"},
+        {"label": "Excellent (70 to 100)", "color": "#6B9CB0"},
     ]
 
     # Display each category with color
