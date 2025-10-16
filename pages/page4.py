@@ -212,7 +212,7 @@ if st.session_state.get('authentication_status'):
     # ==============================
     # 📊 TABEL PERBANDINGAN NPS (2023–2025)
     # ==============================
-    st.divider()
+
     st.markdown("##### 📋 NPS Comparison Table (2023–2025)")
 
     nps_compare = filtered_data.copy()
