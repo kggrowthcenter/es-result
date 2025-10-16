@@ -17,7 +17,7 @@ df_survey25, df_survey24, df_survey23, df_creds = finalize_data()
 # ==============================
 columns_list = [
     'unit', 'subunit', 'directorate', 'division', 'site', 'department', 'section',
-    'layer', 'status', 'generation', 'gender',
+    'layer', 'work_contract', 'generation', 'gender',
     'tenure_category', 'region', 'year'
 ]
 
@@ -175,7 +175,7 @@ if st.session_state.get('authentication_status'):
         ),
         yaxis=dict(title='Percentage', range=[0, 110]),
         legend_title_text='Category',
-        height=600,
+        height=500,
         template='simple_white',
     )
 
@@ -197,8 +197,9 @@ if st.session_state.get('authentication_status'):
         col.markdown(f"<div style='background-color: {category['color']}; padding: 5px; border-radius: 4px; text-align: center;'>{category['label']}</div>", unsafe_allow_html=True)
 
     st.divider()
+
     # ==============================
-    # 🎯STACKED BAR FOR FILTER
+    # 🎯 FILTER
     # ==============================
 
     selected_filter = st.selectbox(
@@ -206,6 +207,145 @@ if st.session_state.get('authentication_status'):
         options=columns_list,
         format_func=lambda x: x.capitalize()
     )
+
+
+    # ==============================
+    # 📊 TABEL PERBANDINGAN NPS (2023–2025)
+    # ==============================
+    st.divider()
+    st.markdown("##### 📋 NPS Comparison Table (2023–2025)")
+
+    nps_compare = filtered_data.copy()
+    # ==============================
+    # 🔒 CONFIDENTIALITY CHECK (N=1)
+    # ==============================
+
+    # Hitung jumlah unik per tahun dan per kategori filter
+    yearly_counts = (
+        nps_compare.groupby([selected_filter, 'year'])['nik']
+        .nunique()
+        .unstack(fill_value=0)
+    )
+
+    # Buat kolom total untuk tracking
+    for y in [2023, 2024, 2025]:
+        if y not in yearly_counts.columns:
+            yearly_counts[y] = 0
+
+    # Hapus kategori yang punya N=1 di salah satu tahun
+    mask_remove = (yearly_counts[[2023, 2024, 2025]] == 1).any(axis=1)
+    to_remove = yearly_counts[mask_remove].index.tolist()
+
+    if len(to_remove) > 0:
+        removed_rows = nps_compare[nps_compare[selected_filter].isin(to_remove)]
+        nps_compare = nps_compare[~nps_compare[selected_filter].isin(to_remove)]
+        st.info(
+            f"Disclaimer: {len(to_remove)} entry/entries in "
+            f"'{selected_filter.capitalize()}' were removed to protect confidentiality (N=1)."
+        )
+
+
+    # --- Hitung summary NPS ---
+    def calc_nps_summary(df):
+        return pd.Series({
+            'Detractors': (df['NPS'] <= 6).mean() * 100,
+            'Promoters': (df['NPS'] >= 9).mean() * 100,
+            'NPS': ((df['NPS'] >= 9).mean() - (df['NPS'] <= 6).mean()) * 100
+        })
+
+    summary = nps_compare.groupby([selected_filter, 'year'], dropna=False).apply(calc_nps_summary).reset_index()
+
+    # Pisahkan per tahun
+    summary_2023 = summary[summary['year'] == 2023].drop(columns=['year'])
+    summary_2024 = summary[summary['year'] == 2024].drop(columns=['year'])
+    summary_2025 = summary[summary['year'] == 2025].drop(columns=['year'])
+
+    # Gabungkan
+    comparison_df = pd.merge(summary_2023, summary_2024, on=selected_filter, suffixes=('_2023', '_2024'), how='outer')
+    comparison_df = pd.merge(comparison_df, summary_2025, on=selected_filter, how='outer')
+
+    comparison_df.rename(columns={
+        'Detractors': 'Detractors_2025',
+        'Promoters': 'Promoters_2025',
+        'NPS': 'NPS_2025'
+    }, inplace=True)
+
+    # Hitung perubahan
+    comparison_df['Δ 2023–2024 (%)'] = (comparison_df['NPS_2024'] - comparison_df['NPS_2023']).round(1)
+    comparison_df['Δ 2024–2025 (%)'] = (comparison_df['NPS_2025'] - comparison_df['NPS_2024']).round(1)
+
+    # Urutkan kolom
+    ordered_cols = [
+        selected_filter,
+        'Detractors_2023', 'Promoters_2023', 'NPS_2023',
+        'Detractors_2024', 'Promoters_2024', 'NPS_2024',
+        'Δ 2023–2024 (%)',
+        'Detractors_2025', 'Promoters_2025', 'NPS_2025',
+        'Δ 2024–2025 (%)'
+    ]
+    comparison_df = comparison_df[[c for c in ordered_cols if c in comparison_df.columns]]
+
+    # Bulatkan angka
+    numeric_cols = [
+        'Detractors_2023', 'Promoters_2023', 'NPS_2023',
+        'Detractors_2024', 'Promoters_2024', 'NPS_2024',
+        'Detractors_2025', 'Promoters_2025', 'NPS_2025'
+    ]
+    for col in numeric_cols:
+        if col in comparison_df.columns:
+            comparison_df[col] = comparison_df[col].round(1)
+
+    # Format kolom perubahan
+    def format_change(v):
+        if pd.isna(v):
+            return "-"
+        elif v > 0:
+            return f"{v:+.1f}% ↑"
+        elif v < 0:
+            return f"{v:+.1f}% ↓"
+        else:
+            return f"{v:+.1f}% →"
+
+    for col in ['Δ 2023–2024 (%)', 'Δ 2024–2025 (%)']:
+        comparison_df[col + "_val"] = comparison_df[col]
+        comparison_df[col] = comparison_df[col].apply(format_change)
+
+    # Warna perubahan
+    def color_change(val):
+        if isinstance(val, str):
+            if '↑' in val:
+                return 'color: #228B22; font-weight: 600;'  # hijau
+            elif '↓' in val:
+                return 'color: #B22222; font-weight: 600;'  # merah
+            elif '→' in val:
+                return 'color: grey; font-weight: 600;'
+        return ''
+
+    # 🔹 Highlight abu-abu untuk kolom NPS
+    def highlight_nps(col):
+        if any(keyword in col for keyword in ['NPS_2023', 'NPS_2024', 'NPS_2025']):
+            return ['background-color: #f3f3f3' for _ in range(len(comparison_df))]
+        else:
+            return ['' for _ in range(len(comparison_df))]
+
+    # Simpan hanya kolom yang benar-benar ada
+    available_cols = [c for c in comparison_df.columns if not c.endswith('_val')]
+
+    # Terapkan style aman
+    styled_df = (
+        comparison_df
+        .drop(columns=[c for c in comparison_df.columns if c.endswith('_val')], errors='ignore')
+        .style
+        .applymap(color_change, subset=[c for c in ['Δ 2023–2024 (%)', 'Δ 2024–2025 (%)'] if c in comparison_df.columns])
+        .apply(highlight_nps, subset=available_cols, axis=0)
+        .format({col: "{:.1f}" for col in numeric_cols if col in comparison_df.columns})
+    )
+
+    st.dataframe(styled_df, use_container_width=True)
+
+    # ==============================
+    # 🎯STACKED BAR 
+    # ==============================
 
     year_options = ["2023", "2024", "2025"]
     selected_year = st.selectbox("Select Year to Display:", year_options, index=year_options.index("2025"))
@@ -306,125 +446,3 @@ if st.session_state.get('authentication_status'):
             )
 
             st.plotly_chart(fig_stacked, use_container_width=True)
-
-
-    # ==============================
-    # 📊 TABEL PERBANDINGAN NPS (2023–2025)
-    # ==============================
-    st.divider()
-    st.markdown("##### 📋 NPS Comparison Table (2023–2025)")
-
-    nps_compare = combined_df.copy()
-
-    # Terapkan filter user
-    for col, vals in selected_filters.items():
-        if col in nps_compare.columns:
-            nps_compare = nps_compare[nps_compare[col].isin(vals)]
-
-    # Ambil hanya tahun 2023–2025
-    nps_compare = nps_compare[nps_compare['year'].isin([2023, 2024, 2025])]
-    nps_compare = nps_compare.dropna(subset=['NPS'])
-    nps_compare['NPS'] = pd.to_numeric(nps_compare['NPS'], errors='coerce')
-
-    if nps_compare.empty:
-        st.warning("No NPS data available for 2023–2025 after applying filters.")
-    else:
-        # --- Hitung summary NPS ---
-        def calc_nps_summary(df):
-            return pd.Series({
-                'Detractors': (df['NPS'] <= 6).mean() * 100,
-                'Promoters': (df['NPS'] >= 9).mean() * 100,
-                'NPS': ((df['NPS'] >= 9).mean() - (df['NPS'] <= 6).mean()) * 100
-            })
-
-        summary = nps_compare.groupby([selected_filter, 'year'], dropna=False).apply(calc_nps_summary).reset_index()
-
-        # Pisahkan per tahun
-        summary_2023 = summary[summary['year'] == 2023].drop(columns=['year'])
-        summary_2024 = summary[summary['year'] == 2024].drop(columns=['year'])
-        summary_2025 = summary[summary['year'] == 2025].drop(columns=['year'])
-
-        # Gabungkan
-        comparison_df = pd.merge(summary_2023, summary_2024, on=selected_filter, suffixes=('_2023', '_2024'), how='outer')
-        comparison_df = pd.merge(comparison_df, summary_2025, on=selected_filter, how='outer')
-
-        comparison_df.rename(columns={
-            'Detractors': 'Detractors_2025',
-            'Promoters': 'Promoters_2025',
-            'NPS': 'NPS_2025'
-        }, inplace=True)
-
-        # Hitung perubahan
-        comparison_df['Δ 2023–2024 (%)'] = (comparison_df['NPS_2024'] - comparison_df['NPS_2023']).round(1)
-        comparison_df['Δ 2024–2025 (%)'] = (comparison_df['NPS_2025'] - comparison_df['NPS_2024']).round(1)
-
-        # Urutkan kolom
-        ordered_cols = [
-            selected_filter,
-            'Detractors_2023', 'Promoters_2023', 'NPS_2023',
-            'Detractors_2024', 'Promoters_2024', 'NPS_2024',
-            'Δ 2023–2024 (%)',
-            'Detractors_2025', 'Promoters_2025', 'NPS_2025',
-            'Δ 2024–2025 (%)'
-        ]
-        comparison_df = comparison_df[[c for c in ordered_cols if c in comparison_df.columns]]
-
-        # Bulatkan angka
-        numeric_cols = [
-            'Detractors_2023', 'Promoters_2023', 'NPS_2023',
-            'Detractors_2024', 'Promoters_2024', 'NPS_2024',
-            'Detractors_2025', 'Promoters_2025', 'NPS_2025'
-        ]
-        for col in numeric_cols:
-            if col in comparison_df.columns:
-                comparison_df[col] = comparison_df[col].round(1)
-
-        # Format kolom perubahan
-        def format_change(v):
-            if pd.isna(v):
-                return "-"
-            elif v > 0:
-                return f"{v:+.1f}% ↑"
-            elif v < 0:
-                return f"{v:+.1f}% ↓"
-            else:
-                return f"{v:+.1f}% →"
-
-        for col in ['Δ 2023–2024 (%)', 'Δ 2024–2025 (%)']:
-            comparison_df[col + "_val"] = comparison_df[col]
-            comparison_df[col] = comparison_df[col].apply(format_change)
-
-        # Warna perubahan
-        def color_change(val):
-            if isinstance(val, str):
-                if '↑' in val:
-                    return 'color: #228B22; font-weight: 600;'  # hijau
-                elif '↓' in val:
-                    return 'color: #B22222; font-weight: 600;'  # merah
-                elif '→' in val:
-                    return 'color: grey; font-weight: 600;'
-            return ''
-
-        # 🔹 Highlight abu-abu untuk kolom NPS
-        def highlight_nps(col):
-            if any(keyword in col for keyword in ['NPS_2023', 'NPS_2024', 'NPS_2025']):
-                return ['background-color: #f3f3f3' for _ in range(len(comparison_df))]
-            else:
-                return ['' for _ in range(len(comparison_df))]
-
-        # Simpan hanya kolom yang benar-benar ada
-        available_cols = [c for c in comparison_df.columns if not c.endswith('_val')]
-
-        # Terapkan style aman
-        styled_df = (
-            comparison_df
-            .drop(columns=[c for c in comparison_df.columns if c.endswith('_val')], errors='ignore')
-            .style
-            .applymap(color_change, subset=[c for c in ['Δ 2023–2024 (%)', 'Δ 2024–2025 (%)'] if c in comparison_df.columns])
-            .apply(highlight_nps, subset=available_cols, axis=0)
-            .format({col: "{:.1f}" for col in numeric_cols if col in comparison_df.columns})
-        )
-
-        st.dataframe(styled_df, use_container_width=True)
-
-
