@@ -362,7 +362,7 @@ if st.session_state.get('authentication_status'):
             return pd.DataFrame(columns=base_cols)
         
         temp = df.copy()
-        temp[demo_col] = temp[demo_col].fillna("Missing").astype(str)
+        temp[demo_col] = temp[demo_col].astype(object).fillna("Missing").astype(str)
 
         grouped = (
             temp.groupby(demo_col)[dimension_col]
