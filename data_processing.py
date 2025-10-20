@@ -89,8 +89,13 @@ def finalize_data():
         '-' :'-'
     }
 
-    df_survey25['layer'] = df_survey25['layer'].map(layer_mapping)
-    df_survey23['layer'] = df_survey23['layer'].map(layer_mapping)
+    # Fungsi fleksibel: hanya ubah jika ada di mapping, jika tidak biarkan seperti aslinya
+    def flexible_map(series, mapping):
+        return series.apply(lambda x: mapping.get(x, x))
+    
+    # Terapkan ke masing-masing dataframe
+    df_survey25['layer'] = flexible_map(df_survey25['layer'], layer_mapping)
+    df_survey23['layer'] = flexible_map(df_survey23['layer'], layer_mapping)
 
     return df_survey25, df_survey24, df_survey23, df_creds
 
