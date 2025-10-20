@@ -21,6 +21,7 @@ satisfaction_columns = [
 ]
 
 satisfaction_columns_item = [
+    'SAT',
     'KD0', 'KD1', 'KD2', 'KD3', 'KE0', 'KE1', 'KE2', 'KE3',
     'KI0', 'KI1', 'KI2', 'KI3', 'KI4', 'KI5',
     'KR0', 'KR1', 'KR2', 'KR3', 'KR4', 'KR5',
@@ -100,11 +101,13 @@ if st.session_state.get('authentication_status'):
     if item_level_analysis:
         data = {
             "Code": [
-                "KD", "KD0", "KD1", "KD2", "KD3", "KE", "KE0", "KE1", "KE2", "KE3", "KI", "KI0", 
+                "SAT", "", "KD", "KD0", "KD1", "KD2", "KD3", "KE", "KE0", "KE1", "KE2", "KE3", "KI", "KI0", 
                 "KI1", "KI2", "KI3", "KI4", "KI5", "KR", "KR0", "KR1", "KR2", "KR3", "KR4", 
                 "KR5", "PR", "PR0", "PR1", "PR2", "TU", "TU0", "TU1", "TU2", "TU3"
             ],
             "Description": [
+                "Overall Satisfaction",
+                "Saya merasa puas menjadi bagian dari perusahaan ini.",
                 "Kebutuhan Dasar",
                 "Saya merasa perusahaan ini sudah memenuhi segala kebutuhan kerja dasar yang saya miliki.",
                 "Saya memahami secara jelas bagaimana ekspektasi kerja yang diharapkan kepada saya (Ekspektasi mengacu kepada, namun tidak terbatas pada KPI).",
@@ -151,7 +154,7 @@ if st.session_state.get('authentication_status'):
         table_html = df_description.to_html(escape=False, index=False)
 
         # Specify the rows to be bolded (for example, rows with Code 'KD0' and 'SAT')
-        bold_rows = df_description[df_description['Code'].isin(['KD', 'KE', 'KI', 'KR', 'PR', 'TU'])].index
+        bold_rows = df_description[df_description['Code'].isin(['SAT', 'KD', 'KE', 'KI', 'KR', 'PR', 'TU'])].index
 
         # Apply bold styling to specific rows
         for row in bold_rows:
@@ -176,9 +179,11 @@ if st.session_state.get('authentication_status'):
         prefix_mapping = prefix_mapping
 
     # Recalculate SAT dynamically from raw item-level columns
-    if st.checkbox("Use average of satisfaction items for Overall Satisfaction", value=False):
+    use_average_sat = st.checkbox("Use average of satisfaction items for Overall Satisfaction", value=False, key="UseAverageSAT")
+
+    if use_average_sat:
         for df in [df_survey23, df_survey24, df_survey25]:
-            existing_cols = [c for c in satisfaction_columns_item if c in df.columns]  # only existing columns
+            existing_cols = [c for c in satisfaction_columns_item if c in df.columns]
             if existing_cols:
                 df['SAT'] = df[existing_cols].mean(axis=1)
 
@@ -220,6 +225,20 @@ if st.session_state.get('authentication_status'):
     # -----------------------
     # Year Comparison Table
     # -----------------------
+
+    # --- Top Box Calculation (score = 5) ---
+    def top_box_percentage(df, columns):
+        """Calculate top box % (score = 5) for each column in df."""
+        result = {}
+        for col in columns:
+            if col in df.columns:
+                total = df[col].notna().sum()
+                top5 = (df[col] == 5).sum()
+                result[col] = round((top5 / total * 100), 2) if total > 0 else np.nan
+            else:
+                result[col] = np.nan
+        return pd.Series(result)
+
     df_avg_23 = df_survey23_filtered[satisfaction_cols].mean().round(2).reset_index()
     df_avg_23.columns = ['Dimension/Item', 'Average 2023']
     df_avg_24 = df_survey24_filtered[satisfaction_cols].mean().round(2).reset_index()
@@ -227,31 +246,66 @@ if st.session_state.get('authentication_status'):
     df_avg_25 = df_survey25_filtered[satisfaction_cols].mean().round(2).reset_index()
     df_avg_25.columns = ['Dimension/Item', 'Average 2025']
 
-    df_comparison = pd.merge(df_avg_23, df_avg_24, on="Dimension/Item", how="outer")
-    df_comparison = pd.merge(df_comparison, df_avg_25, on="Dimension/Item", how="outer")
+    # Calculate Top Box if item level is checked
+    if item_level_analysis:
+        top23 = top_box_percentage(df_survey23_filtered, satisfaction_cols).reset_index()
+        top23.columns = ['Dimension/Item', 'Top Box 2023 (%)']
+
+        top24 = top_box_percentage(df_survey24_filtered, satisfaction_cols).reset_index()
+        top24.columns = ['Dimension/Item', 'Top Box 2024 (%)']
+
+        top25 = top_box_percentage(df_survey25_filtered, satisfaction_cols).reset_index()
+        top25.columns = ['Dimension/Item', 'Top Box 2025 (%)']
+
+        df_comparison = df_avg_23.merge(df_avg_24, on='Dimension/Item', how='outer')
+        df_comparison = df_comparison.merge(df_avg_25, on='Dimension/Item', how='outer')
+        df_comparison = df_comparison.merge(top23, on='Dimension/Item', how='outer')
+        df_comparison = df_comparison.merge(top24, on='Dimension/Item', how='outer')
+        df_comparison = df_comparison.merge(top25, on='Dimension/Item', how='outer')
+    else:
+        df_comparison = df_avg_23.merge(df_avg_24, on='Dimension/Item', how='outer')
+        df_comparison = df_comparison.merge(df_avg_25, on='Dimension/Item', how='outer')
 
     df_comparison['Dimension/Item'] = df_comparison['Dimension/Item'].map(satisfaction_map).fillna(df_comparison['Dimension/Item'])
     
     df_comparison['Progress 2024'] = df_comparison['Average 2024'] - df_comparison['Average 2023']
     df_comparison['Progress 2025'] = df_comparison['Average 2025'] - df_comparison['Average 2024']
 
-    # Count only SAT column responses
-    n_23 = df_survey23_filtered['SAT'].count()
-    n_24 = df_survey24_filtered['SAT'].count()
-    n_25 = df_survey25_filtered['SAT'].count()
-    
-    n_row = pd.DataFrame({
-        'Dimension/Item': ['N'],
-        'Average 2023': [n_23],
-        'Average 2024': [n_24],
-        'Average 2025': [n_25],
-        'Progress 2024': [n_24 - n_23],
-        'Progress 2025': [n_25 - n_24]
-    })
+    # N row
+    n_row_dict = {
+        'Dimension/Item': 'N',
+        'Average 2023': df_survey23_filtered['SAT'].count(),
+        'Average 2024': df_survey24_filtered['SAT'].count(),
+        'Average 2025': df_survey25_filtered['SAT'].count(),
+        'Progress 2024': df_survey24_filtered['SAT'].count() - df_survey23_filtered['SAT'].count(),
+        'Progress 2025': df_survey25_filtered['SAT'].count() - df_survey24_filtered['SAT'].count(),
+    }
 
+    # Add empty Top Box columns for N row if needed
+    if item_level_analysis:
+        n_row_dict.update({
+            'Top Box 2023 (%)': np.nan,
+            'Top Box 2024 (%)': np.nan,
+            'Top Box 2025 (%)': np.nan
+        })
+
+    n_row = pd.DataFrame([n_row_dict])
     df_comparison = pd.concat([df_comparison, n_row], ignore_index=True)
-    
-    df_comparison = df_comparison[['Dimension/Item', 'Average 2023', 'Average 2024', 'Progress 2024', 'Average 2025', 'Progress 2025']]
+
+    # Reorder rows so SAT appears first
+    if 'SAT' in df_comparison['Dimension/Item'].values:
+        sat_row = df_comparison[df_comparison['Dimension/Item'] == 'SAT']
+        other_rows = df_comparison[df_comparison['Dimension/Item'] != 'SAT']
+        df_comparison = pd.concat([sat_row, other_rows], ignore_index=True)
+
+    # If both item level and SAT-average checkboxes are selected, drop SAT row
+    if item_level_analysis and st.session_state.get('UseAverageSAT', False):
+        df_comparison = df_comparison[df_comparison['Dimension/Item'] != 'SAT']
+
+    if item_level_analysis:
+        df_comparison = df_comparison[['Dimension/Item', 'Top Box 2023 (%)', 'Average 2023', 'Top Box 2024 (%)','Average 2024', 'Progress 2024', 'Top Box 2025 (%)', 'Average 2025', 'Progress 2025']]
+    else:
+        df_comparison = df_comparison[['Dimension/Item', 'Average 2023', 'Average 2024', 'Progress 2024', 'Average 2025', 'Progress 2025']]
 
     st.subheader("🟣 Year-over-Year Dimension Comparison", divider="gray")
     
@@ -263,19 +317,29 @@ if st.session_state.get('authentication_status'):
             'Average 2024': '{:.2f}',
             'Average 2025': '{:.2f}',
             'Progress 2024': '{:+.2f}',
-            'Progress 2025': '{:+.2f}'
+            'Progress 2025': '{:+.2f}',
+            'Top Box 2023 (%)': '{:.0f}%',
+            'Top Box 2024 (%)': '{:.0f}%',
+            'Top Box 2025 (%)': '{:.0f}%'
         }, na_rep='–')
     )
     st.dataframe(styled_year, use_container_width=True, hide_index=True)
 
     # -----------------------
-    # Demography Comparison Table (Moved here)
+    # 🟢 Year-over-Year Demographic Comparison
     # -----------------------
     st.subheader("🟢 Year-over-Year Demographic Comparison", divider="gray")
 
+    # Prepare options for demographic table
+    demo_dimension_options = list(satisfaction_map.keys())
+
+    # If both item-level and use-average-SAT are active, remove SAT from options
+    if item_level_analysis and st.session_state.get('UseAverageSAT', False):
+        demo_dimension_options = [opt for opt in demo_dimension_options if opt != 'SAT']
+
     selected_dimension_for_demo_table = st.selectbox(
         "Select Dimension/Item for Demography Table:",
-        options=list(satisfaction_map.keys()),
+        options=demo_dimension_options,
         format_func=lambda x: satisfaction_map.get(x, x),
         key="demo_table_dimension"
     )
@@ -287,12 +351,17 @@ if st.session_state.get('authentication_status'):
         key="demo_table_demography"
     )
 
-    def summarize_by_demography(df, year, dimension_col, demo_col):
+    # -----------------------
+    # Helper: Summarize by demography
+    # -----------------------
+    def summarize_by_demography(df, year, dimension_col, demo_col, include_topbox=False):
         if demo_col not in df.columns:
-            return pd.DataFrame(columns=[demo_col, f'{year} Mean', f'{year} N'])
+            base_cols = [demo_col, f'{year} Mean', f'{year} N']
+            if include_topbox:
+                base_cols.insert(2, f'{year} Top Box (%)')
+            return pd.DataFrame(columns=base_cols)
         
         temp = df.copy()
-        # Handle NaN and ensure it's string for grouping
         temp[demo_col] = temp[demo_col].fillna("Missing").astype(str)
 
         grouped = (
@@ -302,21 +371,47 @@ if st.session_state.get('authentication_status'):
             .reset_index()
         )
         grouped.columns = [demo_col, f'{year} Mean', f'{year} N']
+
+        if include_topbox:
+            topbox = (
+                temp.groupby(demo_col)[dimension_col]
+                .apply(lambda x: (x == 5).sum() / x.notna().sum() * 100 if x.notna().sum() > 0 else np.nan)
+                .reset_index(name=f'{year} Top Box (%)')
+            )
+            grouped = grouped.merge(topbox, on=demo_col, how='left')
+
         return grouped
 
+    # -----------------------
+    # Summaries per year
+    # -----------------------
+    demo_23 = summarize_by_demography(
+        df_survey23_filtered, 2023, selected_dimension_for_demo_table, selected_demography_for_table,
+        include_topbox=item_level_analysis
+    )
+    demo_24 = summarize_by_demography(
+        df_survey24_filtered, 2024, selected_dimension_for_demo_table, selected_demography_for_table,
+        include_topbox=item_level_analysis
+    )
+    demo_25 = summarize_by_demography(
+        df_survey25_filtered, 2025, selected_dimension_for_demo_table, selected_demography_for_table,
+        include_topbox=item_level_analysis
+    )
 
-    demo_23 = summarize_by_demography(df_survey23_filtered, 2023, selected_dimension_for_demo_table, selected_demography_for_table)
-    demo_24 = summarize_by_demography(df_survey24_filtered, 2024, selected_dimension_for_demo_table, selected_demography_for_table)
-    demo_25 = summarize_by_demography(df_survey25_filtered, 2025, selected_dimension_for_demo_table, selected_demography_for_table)
-
+    # -----------------------
+    # Merge all years
+    # -----------------------
     demo_merge = demo_23.merge(demo_24, on=selected_demography_for_table, how='outer')
     demo_merge = demo_merge.merge(demo_25, on=selected_demography_for_table, how='outer')
 
+    # Ensure numeric
     for col in [f'{y} Mean' for y in [2023, 2024, 2025]]:
         if col in demo_merge.columns:
             demo_merge[col] = pd.to_numeric(demo_merge[col], errors='coerce')
 
-    # 🟡 Remove rows where any N column equals 1
+    # -----------------------
+    # Remove N=1 for confidentiality
+    # -----------------------
     n_cols = [f'{y} N' for y in [2023, 2024, 2025] if f'{y} N' in demo_merge.columns]
     rows_removed = 0
     if n_cols:
@@ -324,35 +419,51 @@ if st.session_state.get('authentication_status'):
         rows_removed = condition.sum()
         demo_merge = demo_merge[~condition]
 
-    # 📝 Confidentiality disclaimer
     if rows_removed > 0:
         st.write(
             f"Disclaimer: {rows_removed} entry/entries in the "
             f"'{selected_demography_for_table.capitalize()}' column were removed to protect confidentiality (N=1)."
         )
 
-    # Calculate Progress
+    # -----------------------
+    # Progress calculation
+    # -----------------------
     if '2023 Mean' in demo_merge.columns and '2024 Mean' in demo_merge.columns:
         demo_merge['Progress 2024'] = demo_merge['2024 Mean'] - demo_merge['2023 Mean']
     if '2024 Mean' in demo_merge.columns and '2025 Mean' in demo_merge.columns:
         demo_merge['Progress 2025'] = demo_merge['2025 Mean'] - demo_merge['2024 Mean']
 
+    # -----------------------
+    # Column ordering: N → Top Box (if any) → Mean → Progress
+    # -----------------------
     cols = [selected_demography_for_table]
-    if '2023 Mean' in demo_merge.columns: cols += ['2023 N', '2023 Mean']
-    if '2024 Mean' in demo_merge.columns: cols += ['2024 N', '2024 Mean', 'Progress 2024']
-    if '2025 Mean' in demo_merge.columns: cols += ['2025 N', '2025 Mean', 'Progress 2025']
+    for y in [2023, 2024, 2025]:
+        if f'{y} Mean' in demo_merge.columns:
+            year_cols = [f'{y} N']
+            if f'{y} Top Box (%)' in demo_merge.columns:
+                year_cols.append(f'{y} Top Box (%)')
+            year_cols.append(f'{y} Mean')
+            if y in [2024, 2025]:
+                year_cols.append(f'Progress {y}')
+            cols += year_cols
+
     demo_merge = demo_merge[cols]
 
+    # Sort by 2025 Mean if available
     if '2025 Mean' in demo_merge.columns:
         demo_merge = demo_merge.sort_values(by='2025 Mean', ascending=False)
 
-    # Format table: 2 decimals for Mean/Progress, no decimals for N
+    # -----------------------
+    # Format table
+    # -----------------------
     format_dict = {}
     for c in demo_merge.columns:
         if 'Mean' in c or 'Progress' in c:
             format_dict[c] = '{:.2f}'
         elif c.endswith('N'):
-            format_dict[c] = '{:,.0f}'  # no decimals, thousands separator if needed
+            format_dict[c] = '{:,.0f}'
+        elif 'Top Box' in c:
+            format_dict[c] = '{:.0f}%'
 
     styled_demo = (
         demo_merge.style
@@ -361,6 +472,7 @@ if st.session_state.get('authentication_status'):
     )
 
     st.dataframe(styled_demo, use_container_width=True, hide_index=True)
+
 
     # -----------------------
     # Score Percentage charts (with year selector)
