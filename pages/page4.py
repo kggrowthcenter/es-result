@@ -247,10 +247,26 @@ if st.session_state.get('authentication_status'):
 
     # --- Hitung summary NPS ---
     def calc_nps_summary(df):
+        # Pastikan kolom NPS numerik
+        df['NPS'] = pd.to_numeric(df['NPS'], errors='coerce')
+        total = df['NPS'].count()
+
+        promoters = (df['NPS'] >= 9).sum()
+        detractors = (df['NPS'] <= 6).sum()
+        passives = ((df['NPS'] >= 7) & (df['NPS'] <= 8)).sum()
+
+        promoters_pct = (promoters / total) * 100 if total > 0 else 0
+        detractors_pct = (detractors / total) * 100 if total > 0 else 0
+        nps_score = promoters_pct - detractors_pct
+
         return pd.Series({
-            'Detractors': (df['NPS'] <= 6).mean() * 100,
-            'Promoters': (df['NPS'] >= 9).mean() * 100,
-            'NPS': ((df['NPS'] >= 9).mean() - (df['NPS'] <= 6).mean()) * 100
+            'Detractors': detractors_pct,
+            'Promoters': promoters_pct,
+            'NPS': nps_score,
+            'Promoters_Count': promoters,
+            'Passives_Count': passives,
+            'Detractors_Count': detractors,
+            'Total': total
         })
 
     summary = nps_compare.groupby([selected_filter, 'year'], dropna=False).apply(calc_nps_summary).reset_index()
