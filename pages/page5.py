@@ -74,6 +74,9 @@ if st.session_state.get('authentication_status'):
     else:
         df_survey = df_survey23.copy()
 
+    # ✅ Only include employees who answered KE1 or NPS
+    df_survey = df_survey[(~df_survey['KE1'].isna()) | (~df_survey['NPS'].isna())]
+
     if combine_with_nps:
         df_survey['combined_category'] = df_survey.apply(
             lambda row: f"{row['category_sat']} Satisfaction - {row['category_nps']}",
