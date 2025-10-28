@@ -441,11 +441,11 @@ if st.session_state.get('authentication_status'):
             # --- Tambahkan annotation NPS di kanan bar ---
             for _, row in grouped.iterrows():
                 fig_stacked.add_annotation(
-                    x=105,
+                    x=107,
                     y=row[selected_filter],
                     text=f"{row['NPS_Score']}%",
                     showarrow=False,
-                    font=dict(size=14, color="grey"),
+                    font=dict(size=16, color="black"),
                     align="left"
                 )
 
@@ -454,11 +454,25 @@ if st.session_state.get('authentication_status'):
                 title=f"NPS Breakdown by {selected_filter.title()} ({selected_year})",
                 xaxis_title="Percentage (%)",
                 yaxis_title=selected_filter.title(),
-                xaxis=dict(range=[0, 110]),
                 barmode='stack',
-                height=700,
+                height=600,
                 legend_title_text="NPS Category",
+                margin=dict(l=50, r=50, t=80, b=50),  # kiri diperkecil biar gak makan tempat
+                xaxis=dict(
+                    range=[0, 110],
+                    title_font=dict(size=14, color='black'),
+                    tickfont=dict(size=14, color='black')
+                ),
+                yaxis=dict(
+                    title_font=dict(size=14, color='black'),
+                    tickfont=dict(size=14, color='black', family='Arial', weight='bold')
+                ),
+                title_font=dict(size=14, color='black'),
                 template='simple_white'
             )
+
+
+            # Tambah ini biar label Y jadi bold
+            fig_stacked.update_yaxes(title_font=dict(size=14), tickfont=dict(size=14, weight='bold'))
 
             st.plotly_chart(fig_stacked, use_container_width=True)
