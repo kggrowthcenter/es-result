@@ -441,7 +441,7 @@ if st.session_state.get('authentication_status'):
             # --- Tambahkan annotation NPS di kanan bar ---
             for _, row in grouped.iterrows():
                 fig_stacked.add_annotation(
-                    x=107,
+                    x=108,
                     y=row[selected_filter],
                     text=f"{row['NPS_Score']}%",
                     showarrow=False,
@@ -474,5 +474,6 @@ if st.session_state.get('authentication_status'):
 
             # Tambah ini biar label Y jadi bold
             fig_stacked.update_yaxes(title_font=dict(size=14), tickfont=dict(size=14, weight='bold'))
+
 
             st.plotly_chart(fig_stacked, use_container_width=True)
