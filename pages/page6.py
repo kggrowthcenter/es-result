@@ -193,7 +193,9 @@ if st.session_state.get('authentication_status'):
 
     # Get categorical columns for grouping
     group_cols = df.select_dtypes(exclude=np.number).columns.tolist() + ["tenure_category", "layer", "year"]
-    group_cols = sorted(list(set(group_cols)))  # remove duplicates & sort
+    group_cols = sorted(list(set(group_cols)))
+    exclude_group_cols = ["admin_hr", "email", "name", "nik_short", "personnel_area", "position", "submit_date", ]  # ⬅️ Add any others you don’t want
+    group_cols = [c for c in group_cols if c not in exclude_group_cols]
 
     if len(numeric_cols) == 0 or len(group_cols) == 0:
         st.warning("Not enough variables for mean difference test.")
