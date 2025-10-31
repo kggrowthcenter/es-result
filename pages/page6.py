@@ -56,7 +56,13 @@ if st.session_state.get('authentication_status'):
 
     selected_filters = make_filter(columns_list, df, key_prefix="corr_filter")
 
+    # ✅ Apply filter selections to df
+    for col, values in selected_filters.items():
+        if values:  # only filter when user selected something
+            df = df[df[col].isin(values)]
+
     st.write(f"Data shape after filter: {df.shape[0]} rows × {df.shape[1]} columns")
+
 
     # ======================================================
     # SECTION 1 — CORRELATION TEST (MULTIPLE VARIABLES) with normality check

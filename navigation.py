@@ -28,6 +28,7 @@ def make_sidebar():
             st.page_link("pages/page4.py", label="NPS", icon="🗣️")
             st.page_link("pages/page5.py", label="Categorization", icon="🤝")
             st.page_link("pages/page6.py", label="Stats Tools", icon="📊")
+            st.page_link("pages/page7.py", label="Gallup Index", icon="🧑‍🔬")
 
             st.write("")
             st.write("")
