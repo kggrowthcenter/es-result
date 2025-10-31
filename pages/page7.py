@@ -121,23 +121,12 @@ gallup_benchmark_data = {
 # Construct Benchmark Table
 # ==============================
 benchmarks = pd.DataFrame([
-    {
-        "Group": f"Global Gallup {selected_year}",
-        **gallup_benchmark_data[selected_year]["Global"]
-    },
-    {
-        "Group": f"Southeast Asia {selected_year}",
-        **gallup_benchmark_data[selected_year]["SEA"]
-    },
-    {
-        "Group": "KG",
-        "Actively Disengaged": np.nan,
-        "Not Engaged": np.nan,
-        "Actively Engaged": np.nan
-    }
+    {"Group": f"Global Gallup {selected_year}", **gallup_benchmark_data[selected_year]["Global"]},
+    {"Group": f"Southeast Asia {selected_year}", **gallup_benchmark_data[selected_year]["SEA"]},
+    {"Group": "KG", "Actively Disengaged": np.nan, "Not Engaged": np.nan, "Actively Engaged": np.nan}
 ])
 
-# --- KG (whole company) distribution ---
+# --- KG distribution ---
 df_all_raw = {2023: df_survey23, 2024: df_survey24, 2025: df_survey25}[selected_year].copy()
 df_all_raw['Gallup_Avg'] = df_all_raw[existing_cols].mean(axis=1, skipna=True)
 df_all_raw['Engagement Category'] = df_all_raw['Gallup_Avg'].apply(categorize_gallup)
@@ -153,60 +142,56 @@ benchmarks.loc[
 ] = kg_dist.values
 
 # ==============================
-# Helper function to compute % table
+# Helper function
 # ==============================
 def compute_percentage(df, group_col):
-    """Return % distribution by Engagement Category for a group variable."""
     if not group_col or group_col not in df.columns:
         return pd.DataFrame()
-    group_counts = (
-        df.groupby([group_col, "Engagement Category"])
-        .size()
-        .unstack(fill_value=0)
-    )
+    group_counts = df.groupby([group_col, "Engagement Category"]).size().unstack(fill_value=0)
     group_perc = group_counts.div(group_counts.sum(axis=1), axis=0) * 100
     group_perc = group_perc.reindex(columns=["Actively Disengaged", "Not Engaged", "Actively Engaged"], fill_value=0)
+    group_counts = group_counts.reindex(columns=["Actively Disengaged", "Not Engaged", "Actively Engaged"], fill_value=0)
     group_perc.reset_index(inplace=True)
-    group_perc.rename(columns={group_col: "Group"}, inplace=True)
-    return group_perc
+    group_counts.reset_index(inplace=True)
+    merged = group_perc.melt(id_vars=[group_col], var_name="Engagement Category", value_name="Percent").merge(
+        group_counts.melt(id_vars=[group_col], var_name="Engagement Category", value_name="Count"),
+        on=[group_col, "Engagement Category"]
+    )
+    merged.rename(columns={group_col: "Group"}, inplace=True)
+    return merged
 
 # ==============================
 # SECTION 1 — Overall Comparison
 # ==============================
 st.subheader("🌍 Overall Comparison", divider="gray")
 
-rows_section1 = [
-    benchmarks.loc[benchmarks['Group'] == f"Global Gallup {selected_year}"],
-    benchmarks.loc[benchmarks['Group'] == f"Southeast Asia {selected_year}"],
-    benchmarks.loc[benchmarks['Group'] == "KG"],
-]
+bench_list = []
+for _, row in benchmarks.iterrows():
+    for cat in ["Actively Disengaged", "Not Engaged", "Actively Engaged"]:
+        bench_list.append({
+            "Group": row["Group"],
+            "Engagement Category": cat,
+            "Percent": row[cat],
+            "Count": round(row[cat])
+        })
+bench_df = pd.DataFrame(bench_list)
 
-# Add Unit-level breakdown if available
-if "unit" in df_selected.columns:
-    unit_perc = compute_percentage(df_selected, "unit")
-    if not unit_perc.empty:
-        rows_section1.append(unit_perc)
-
-comparison_df1 = pd.concat(rows_section1, ignore_index=True)
-
-melted1 = comparison_df1.melt(
-    id_vars=["Group"],
-    value_vars=["Actively Disengaged", "Not Engaged", "Actively Engaged"],
-    var_name="Engagement Category",
-    value_name="Percent"
-)
+kg_melted = compute_percentage(df_all_raw, "unit") if "unit" in df_all_raw.columns else pd.DataFrame()
+comparison_df1 = pd.concat([bench_df, kg_melted], ignore_index=True)
 
 order1 = [f"Global Gallup {selected_year}", f"Southeast Asia {selected_year}", "KG"]
 if "unit" in df_selected.columns:
     order1 += sorted(df_selected["unit"].dropna().unique().tolist())
-melted1["Group"] = pd.Categorical(melted1["Group"], categories=order1, ordered=True)
+comparison_df1["Group"] = pd.Categorical(comparison_df1["Group"], categories=order1, ordered=True)
+comparison_df1["Label"] = comparison_df1.apply(lambda r: f"{int(round(r['Percent']))}% ({int(r['Count'])})", axis=1)
 
 fig1 = px.bar(
-    melted1,
-    x="Group",
-    y="Percent",
+    comparison_df1,
+    x="Percent",
+    y="Group",
     color="Engagement Category",
-    text=melted1["Percent"].round(0).astype(int).astype(str) + "%",
+    text="Label",
+    orientation="h",
     color_discrete_map={
         "Actively Disengaged": "#e74c3c",
         "Not Engaged": "#f1c40f",
@@ -215,11 +200,10 @@ fig1 = px.bar(
 )
 fig1.update_layout(
     barmode="stack",
-    yaxis=dict(title="%", range=[0, 100]),
-    xaxis_title=None,
+    xaxis=dict(title="%", range=[0, 100]),
+    yaxis_title=None,
     legend_title=None,
-    height=550,
-    title=""
+    height=600,
 )
 fig1.update_traces(textposition="inside", insidetextanchor="middle")
 st.plotly_chart(fig1, use_container_width=True)
@@ -239,21 +223,17 @@ if breakdown_var and breakdown_var in df_selected.columns:
     if section2.empty:
         st.info("No data available for this breakdown.")
     else:
-        melted2 = section2.melt(
-            id_vars=["Group"],
-            value_vars=["Actively Disengaged", "Not Engaged", "Actively Engaged"],
-            var_name="Engagement Category",
-            value_name="Percent"
-        )
+        section2["Label"] = section2.apply(lambda r: f"{int(round(r['Percent']))}% ({int(r['Count'])})", axis=1)
         order2 = sorted(df_selected[breakdown_var].dropna().unique().tolist())
-        melted2["Group"] = pd.Categorical(melted2["Group"], categories=order2, ordered=True)
+        section2["Group"] = pd.Categorical(section2["Group"], categories=order2, ordered=True)
 
         fig2 = px.bar(
-            melted2,
-            x="Group",
-            y="Percent",
+            section2,
+            x="Percent",
+            y="Group",
             color="Engagement Category",
-            text=melted2["Percent"].round(0).astype(int).astype(str) + "%",
+            text="Label",
+            orientation="h",
             color_discrete_map={
                 "Actively Disengaged": "#e74c3c",
                 "Not Engaged": "#f1c40f",
@@ -262,11 +242,10 @@ if breakdown_var and breakdown_var in df_selected.columns:
         )
         fig2.update_layout(
             barmode="stack",
-            yaxis=dict(title="%", range=[0, 100]),
-            xaxis_title=None,
+            xaxis=dict(title="%", range=[0, 100]),
+            yaxis_title=None,
             legend_title=None,
-            height=550,
-            title=""
+            height=600,
         )
         fig2.update_traces(textposition="inside", insidetextanchor="middle")
         st.plotly_chart(fig2, use_container_width=True)
