@@ -1,4 +1,5 @@
 import streamlit as st
+import math
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -185,11 +186,35 @@ if "unit" in df_selected.columns:
 comparison_df1["Group"] = pd.Categorical(comparison_df1["Group"], categories=order1, ordered=True)
 
 def format_label(row):
-    if any(x in row["Group"] for x in ["Global Gallup", "Southeast Asia"]):
-        return f"{int(round(row['Percent']))}%"
-    else:
-        return f"{int(round(row['Percent']))}% ({int(row['Count'])})"
-    
+    # Safely coerce Group to string (handle NaN/None)
+    group = "" if pd.isna(row.get("Group")) else str(row.get("Group"))
+
+    # Safely read percent and count (handle NaN)
+    percent = row.get("Percent")
+    count = row.get("Count")
+
+    # If percent is missing, return empty label
+    if percent is None or (isinstance(percent, float) and math.isnan(percent)):
+        return ""
+
+    pct_str = f"{int(round(percent))}%"
+
+    # If it's a Gallup benchmark (global / SEA) show only percentage
+    if any(substr in group for substr in ["Global Gallup", "Southeast Asia"]):
+        return pct_str
+
+    # For company/unit rows, show percentage (N) if Count available and numeric
+    if count is not None and not (isinstance(count, float) and math.isnan(count)):
+        try:
+            cnt = int(round(float(count)))
+            return f"{pct_str} ({cnt})"
+        except Exception:
+            # fallback if count cannot be coerced to int
+            return pct_str
+
+    # fallback: just percentage
+    return pct_str
+
 comparison_df1["Label"] = comparison_df1.apply(format_label, axis=1)
 
 fig1 = px.bar(
