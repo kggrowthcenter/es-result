@@ -12,4 +12,3 @@ plotly
 matplotlib
 seaborn
 scipy
-math
