@@ -167,14 +167,30 @@ def compute_percentage(df, group_col):
 st.subheader("🌍 Overall Comparison", divider="gray")
 
 bench_list = []
+
+# Compute real N for KG
+kg_counts = (
+    df_all_raw['Engagement Category']
+    .value_counts()
+    .reindex(["Actively Disengaged", "Not Engaged", "Actively Engaged"], fill_value=0)
+)
+
+bench_list = []
 for _, row in benchmarks.iterrows():
     for cat in ["Actively Disengaged", "Not Engaged", "Actively Engaged"]:
+        if row["Group"] == "KG":
+            # use KG’s real N
+            count_val = int(kg_counts.get(cat, 0))
+        else:
+            # benchmarks (Global / SEA) don’t have N
+            count_val = np.nan
         bench_list.append({
             "Group": row["Group"],
             "Engagement Category": cat,
             "Percent": row[cat],
-            "Count": round(row[cat])
+            "Count": count_val
         })
+
 bench_df = pd.DataFrame(bench_list)
 
 kg_melted = compute_percentage(df_all_raw, "unit") if "unit" in df_all_raw.columns else pd.DataFrame()
