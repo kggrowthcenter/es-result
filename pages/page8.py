@@ -58,11 +58,14 @@ st.write(f"Jumlah data setelah filter: {df.shape[0]} responden")
 # DEFINISI VARIABEL
 # ==============================
 independent_vars = [
-    'KD1', 'KD2', 'KD3', 'KI1', 'KI2', 'KI3', 'KI4', 'KI5',
-    'KR1', 'KR2', 'KR3', 'KR4', 'KR5',
-    'PR1', 'PR2', 'TU1', 'TU2',
-    'KE1', 'KE2', 'KE3'
+    'KD0', 'KD1', 'KD2', 'KD3', 'KE0', 'KE1', 'KE2', 'KE3',
+    'KI0', 'KI1', 'KI2', 'KI3', 'KI4', 'KI5',
+    'KR0', 'KR1', 'KR2', 'KR3', 'KR4', 'KR5',
+    'PR0', 'PR1', 'PR2',
+    'TU0', 'TU1', 'TU2', 'TU3'
 ]
+if selected_year in ["2024", "2023"]:
+    independent_vars.remove("TU3")
 
 df = df.dropna(subset=['SAT'] + independent_vars)
 if df.empty:
@@ -165,5 +168,42 @@ st.pyplot(fig)
 # ==============================
 # TABEL HASIL IPA
 # ==============================
+# ==============================
+# GANTI LABEL DI TABEL (BUKAN DI GRAFIK)
+# ==============================
+label_mapping = {
+    'KD1': 'Kejelasan ekspektasi kerja (KD1)',
+    'KD2': 'Dukungan kebutuhan kerja (KD2)',
+    'KD3': 'Komitmen kesejahteraan (KD3)',
+    'KD0': 'Pemenuhan kebutuhan dasar (KD0)',
+    'KE1': 'Keinginan bertahan (KE1)',
+    'KE2': 'Motivasi menjaga perusahaan (KE2)',
+    'KE3': 'Rasa bangga (KE3)',
+    'KE0': 'Keterlekatan emosional (KE0)',
+    'KI1': 'Kesempatan menunjukkan kemampuan (KI1)',
+    'KI2': 'Pengakuan hasil kerja (KI2)',
+    'KI3': 'Otonomi dalam bekerja (KI3)',
+    'KI4': 'Rasa dihargai (KI4)',
+    'KI5': 'Dukungan untuk berkembang (KI5)',
+    'KI0': 'Fasilitasi kontribusi individu (KI0)',
+    'PR1': 'Bimbingan untuk bertumbuh (PR1)',
+    'PR2': 'Kesempatan pengembangan karir (PR2)',
+    'PR0': 'Tempat bertumbuh ideal (PR0)',
+    'KR1': 'Rasa keadilan (KR1)',
+    'KR2': 'Penghargaan atas pendapat (KR2)',
+    'KR3': 'Rasa berharga pekerjaannya (KR3)',
+    'KR4': 'Komitmen rekan kerja (KR4)',
+    'KR5': 'Hubungan pertemanan (KR5)',
+    'KR0': 'Kolaborasi yang baik (KR0)',
+    'TU1': 'Keselarasan tujuan (TU1)',
+    'TU2': 'Keterikatan dengan tujuan perusahaan (TU2)',
+    'TU3': 'Penerapan nilai perusahaan (TU3)',
+    'TU0': 'Menemukan tujuan hidup (TU0)',
+}
+
+correlation_df['Factor'] = correlation_df['Factor'].replace(label_mapping)
+
 st.markdown(f"##### Tabel hasil IPA {selected_year}")
 st.dataframe(correlation_df, use_container_width=True)
+
+
