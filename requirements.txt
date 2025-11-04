@@ -12,3 +12,4 @@ plotly
 matplotlib
 seaborn
 scipy
+scikit-learn
