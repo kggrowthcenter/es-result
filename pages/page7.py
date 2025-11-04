@@ -183,7 +183,14 @@ order1 = [f"Global Gallup {selected_year}", f"Southeast Asia {selected_year}", "
 if "unit" in df_selected.columns:
     order1 += sorted(df_selected["unit"].dropna().unique().tolist())
 comparison_df1["Group"] = pd.Categorical(comparison_df1["Group"], categories=order1, ordered=True)
-comparison_df1["Label"] = comparison_df1.apply(lambda r: f"{int(round(r['Percent']))}% ({int(r['Count'])})", axis=1)
+
+def format_label(row):
+    if any(x in row["Group"] for x in ["Global Gallup", "Southeast Asia"]):
+        return f"{int(round(row['Percent']))}%"
+    else:
+        return f"{int(round(row['Percent']))}% ({int(row['Count'])})"
+    
+comparison_df1["Label"] = comparison_df1.apply(format_label, axis=1)
 
 fig1 = px.bar(
     comparison_df1,
