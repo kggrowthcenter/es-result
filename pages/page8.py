@@ -203,6 +203,14 @@ label_mapping = {
 
 correlation_df['Factor'] = correlation_df['Factor'].replace(label_mapping)
 
+midpoint_row = pd.DataFrame({
+    'Factor': ['Midpoint'],
+    'Importance': [round(importance_midpoint, 3)],
+    'Performance': [round(performance_midpoint, 3)],
+    'Category': ['-']
+})
+correlation_df = pd.concat([correlation_df, midpoint_row], ignore_index=True)
+
 st.markdown(f"##### Tabel hasil IPA {selected_year}")
 st.dataframe(correlation_df, use_container_width=True)
 
