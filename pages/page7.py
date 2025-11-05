@@ -257,6 +257,88 @@ fig1.update_traces(textposition="inside", insidetextanchor="middle")
 st.plotly_chart(fig1, use_container_width=True)
 
 # ==============================
+# SECTION 1 — Comparison Table (vs Indonesia Benchmark & Last Year)
+# ==============================
+st.caption("📈 Table: Unit-level comparison vs Indonesia benchmark and last year")
+
+indonesia_benchmark_data = {2023: 24, 2024: 26, 2025: 27}
+ind_benchmark = indonesia_benchmark_data.get(selected_year, np.nan)
+
+def get_engaged_percentage(df):
+    if df.empty:
+        return np.nan
+    df = df.copy()
+    df["Gallup_Avg"] = df[existing_cols].mean(axis=1, skipna=True)
+    df["Engagement Category"] = df["Gallup_Avg"].apply(categorize_gallup)
+    return (df["Engagement Category"].value_counts(normalize=True).get("Actively Engaged", 0)) * 100
+
+# --- Previous year reference ---
+if selected_year > 2023:
+    prev_year_df = {2024: df_survey23, 2025: df_survey24}.get(selected_year, pd.DataFrame())
+else:
+    prev_year_df = pd.DataFrame()
+
+section1_table = []
+
+# KG overall
+kg_engaged = get_engaged_percentage(df_all_raw)
+prev_kg = get_engaged_percentage(prev_year_df) if not prev_year_df.empty else np.nan
+
+section1_table.append({
+    "Group": "KG (Overall)",
+    "Actively Engaged (%)": kg_engaged,
+    "Indonesia Benchmark (%)": ind_benchmark,
+    "Δ vs Last Year": round(kg_engaged - prev_kg, 1) if not np.isnan(prev_kg) else "—",
+    "Status": "✅ Above ID" if kg_engaged >= ind_benchmark else "❌ Below ID"
+})
+
+# 🔹 Breakdown by unit (lowercase)
+if "unit" in df_selected.columns:
+    for unit in sorted(df_selected["unit"].dropna().unique()):
+        curr_df = df_selected[df_selected["unit"] == unit]
+        curr_engaged = get_engaged_percentage(curr_df)
+
+        if not prev_year_df.empty:
+            prev_df_unit = prev_year_df[prev_year_df["unit"] == unit]
+            prev_engaged = get_engaged_percentage(prev_df_unit) if not prev_df_unit.empty else np.nan
+        else:
+            prev_engaged = np.nan
+
+        delta = round(curr_engaged - prev_engaged, 1) if not np.isnan(prev_engaged) else "—"
+        status = "✅ Above ID" if curr_engaged >= ind_benchmark else "❌ Below ID"
+
+        section1_table.append({
+            "Group": unit,
+            "Actively Engaged (%)": curr_engaged,
+            "Indonesia Benchmark (%)": ind_benchmark,
+            "Δ vs Last Year": delta,
+            "Status": status
+        })
+
+section1_table = pd.DataFrame(section1_table)
+
+def safe_format(val, fmt):
+    if isinstance(val, (int, float, np.floating)) and not np.isnan(val):
+        return fmt.format(val)
+    return val
+
+formatted_df1 = section1_table.copy()
+formatted_df1["Actively Engaged (%)"] = formatted_df1["Actively Engaged (%)"].apply(lambda v: safe_format(v, "{:.1f}%"))
+formatted_df1["Indonesia Benchmark (%)"] = formatted_df1["Indonesia Benchmark (%)"].apply(lambda v: safe_format(v, "{:.1f}%"))
+formatted_df1["Δ vs Last Year"] = formatted_df1["Δ vs Last Year"].apply(
+    lambda v: safe_format(v, "{:+.1f}%") if isinstance(v, (int, float, np.floating)) else v
+)
+
+st.dataframe(
+    formatted_df1.style.map(
+        lambda v: "color: green;" if isinstance(v, str) and "✅" in v else
+                  ("color: red;" if isinstance(v, str) and "❌" in v else None),
+        subset=["Status"]
+    ),
+    use_container_width=True
+)
+
+# ==============================
 # SECTION 2 — Detailed Breakdown
 # ==============================
 breakdown_var = st.selectbox(
@@ -299,3 +381,74 @@ if breakdown_var and breakdown_var in df_selected.columns:
         st.plotly_chart(fig2, use_container_width=True)
 else:
     st.info("Select a breakdown variable above to show the detailed section.")
+
+# ==============================
+# SECTION 2 — Breakdown Table (Same Format as Section 1)
+# ==============================
+st.caption("📈 Table: Breakdown vs Indonesia benchmark and last year")
+
+if breakdown_var and breakdown_var in df_selected.columns:
+    section2_table = []
+
+    # --- Indonesia benchmark (current year)
+    ind_benchmark = indonesia_benchmark_data.get(selected_year, np.nan)
+
+    # --- Previous year data
+    if selected_year > 2023:
+        prev_df = {2024: df_survey23, 2025: df_survey24}[selected_year]
+    else:
+        prev_df = pd.DataFrame()
+
+    # --- For each group in breakdown variable
+    for grp in sorted(df_selected[breakdown_var].dropna().unique()):
+        curr_grp_df = df_selected[df_selected[breakdown_var] == grp]
+        curr_engaged = get_engaged_percentage(curr_grp_df)
+
+        # Compare with last year’s same group
+        if not prev_df.empty:
+            prev_grp_df = prev_df[prev_df[breakdown_var] == grp]
+            prev_engaged = get_engaged_percentage(prev_grp_df) if not prev_grp_df.empty else np.nan
+        else:
+            prev_engaged = np.nan
+
+        delta = (
+            round(curr_engaged - prev_engaged, 1)
+            if not np.isnan(prev_engaged)
+            else "—"
+        )
+        status = "✅ Above ID" if curr_engaged >= ind_benchmark else "❌ Below ID"
+
+        section2_table.append({
+            "Group": grp,
+            "Actively Engaged (%)": curr_engaged,
+            "Indonesia Benchmark (%)": ind_benchmark,
+            "Δ vs Last Year": delta,
+            "Status": status
+        })
+
+    section2_table = pd.DataFrame(section2_table)
+
+    # --- Safe numeric formatting ---
+    def safe_format(val, fmt):
+        if isinstance(val, (int, float, np.floating)) and not np.isnan(val):
+            return fmt.format(val)
+        return val
+
+    formatted_df = section2_table.copy()
+    formatted_df["Actively Engaged (%)"] = formatted_df["Actively Engaged (%)"].apply(lambda v: safe_format(v, "{:.1f}%"))
+    formatted_df["Indonesia Benchmark (%)"] = formatted_df["Indonesia Benchmark (%)"].apply(lambda v: safe_format(v, "{:.1f}%"))
+    formatted_df["Δ vs Last Year"] = formatted_df["Δ vs Last Year"].apply(
+        lambda v: safe_format(v, "{:+.1f}%") if isinstance(v, (int, float, np.floating)) else v
+    )
+
+    # --- Display styled table ---
+    st.dataframe(
+        formatted_df.style.map(
+            lambda v: "color: green;" if isinstance(v, str) and "✅" in v else
+                      ("color: red;" if isinstance(v, str) and "❌" in v else None),
+            subset=["Status"]
+        ),
+        use_container_width=True
+    )
+else:
+    st.info("Select a breakdown variable above to display its comparison table.")
